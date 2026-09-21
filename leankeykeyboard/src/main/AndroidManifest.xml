@@ -22,6 +22,10 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES"/>
     <uses-permission android:name="com.amazon.tv.ime.permission.KEYBOARD_STATE"/>
+    <!-- Used only by the origin-flavor "check for update" action (GitHub
+         releases API) - see UpdateChecker. Harmless to declare in the
+         playstore flavor too since that flavor never calls it. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Google Play Store fix -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>

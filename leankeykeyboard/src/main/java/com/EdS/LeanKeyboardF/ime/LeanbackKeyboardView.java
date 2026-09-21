@@ -17,7 +17,6 @@ import android.graphics.drawable.Drawable;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.Keyboard.Key;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -29,7 +28,6 @@ import java.util.Iterator;
 import java.util.List;
 
 public class LeanbackKeyboardView extends FrameLayout {
-    private static final String TAG = "LbKbView";
     /**
      * Space key index (important: wrong value will broke navigation)
      */
@@ -184,10 +182,6 @@ public class LeanbackKeyboardView extends FrameLayout {
             label = key.label.toString();
         }
 
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(TAG, "LABEL: " + key.label + "->" + label);
-        }
-
         Bitmap bitmap = Bitmap.createBitmap(key.width, key.height, Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         Paint paint = mPaint;
@@ -310,11 +304,6 @@ public class LeanbackKeyboardView extends FrameLayout {
 
     }
 
-    private void removeMessages() {
-        // TODO: not implemented
-        Log.w(TAG, "method 'removeMessages()' not implemented");
-    }
-
     /**
      * NOTE: Keys initialization routine.<br/>
      * Any manipulations with keys should be done here.
@@ -354,7 +343,7 @@ public class LeanbackKeyboardView extends FrameLayout {
     }
 
     public Key getKey(int index) {
-        return mKeys != null && mKeys.length != 0 && index >= 0 && index <= mKeys.length ? mKeys[index].key : null;
+        return mKeys != null && mKeys.length != 0 && index >= 0 && index < mKeys.length ? mKeys[index].key : null;
     }
 
     public Keyboard getKeyboard() {
@@ -598,7 +587,6 @@ public class LeanbackKeyboardView extends FrameLayout {
     }
 
     public void setKeyboard(Keyboard keyboard) {
-        removeMessages();
         mKeyboard = keyboard;
         setKeys(mKeyboard.getKeys());
         int state = mShiftState;

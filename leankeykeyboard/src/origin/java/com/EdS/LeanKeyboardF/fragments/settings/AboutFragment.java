@@ -9,7 +9,10 @@ import androidx.core.content.ContextCompat;
 import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist.Guidance;
 import androidx.leanback.widget.GuidedAction;
+import com.EdS.LeanKeyboardF.helpers.Helpers;
+import com.EdS.LeanKeyboardF.helpers.MessageHelpers;
 import com.EdS.LeanKeyboardF.R;
+import com.EdS.LeanKeyboardF.helpers.UpdateChecker;
 
 import java.util.List;
 
@@ -37,6 +40,7 @@ public class AboutFragment extends GuidedStepSupportFragment {
     public void onCreateActions(@NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
         appendInfoAction(getString(R.string.about_original), actions);
         appendInfoAction(getString(R.string.about_this_program), actions);
+        appendInfoAction(getString(R.string.about_check_update), actions);
     }
 
     private void appendInfoAction(String textLine, List<GuidedAction> actions) {
@@ -50,9 +54,27 @@ public class AboutFragment extends GuidedStepSupportFragment {
     @Override
     public void onGuidedActionClicked(GuidedAction action) {
         int idx = (int) action.getId();
+
+        if (idx == URL_MAPPING.length) {
+            UpdateChecker.checkForUpdate(this);
+            return;
+        }
+
         String link = URL_MAPPING.length > idx ? URL_MAPPING[idx] : THIS_URL;
 
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(link));
-        startActivity(intent);
+
+        // Many Android TV boxes have no browser at all - startActivity()
+        // would throw ActivityNotFoundException. Show the address instead
+        // so it can still be typed in on another device.
+        if (!Helpers.startIntent(getActivity(), intent)) {
+            MessageHelpers.showLongMessage(getActivity(), link);
+        }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        UpdateChecker.onReturnedFromPermissionSettings(getActivity());
     }
 }

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    "Legacy Android mode" (Settings -> Misc -> Advanced, see
+    LegacyCompat): touch/focus highlight of the five clipboard buttons.
+    Stands in for ?android:attr/selectableItemBackgroundBorderless (API 21,
+    a ripple) with a plain state list that exists on every Android version.
+    Semi-transparent grey, so it is visible on both dark and light themes.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <shape android:shape="oval">
+            <solid android:color="#44808080" />
+        </shape>
+    </item>
+    <item android:state_focused="true">
+        <shape android:shape="oval">
+            <solid android:color="#33808080" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+</selector>

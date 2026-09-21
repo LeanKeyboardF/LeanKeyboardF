@@ -3,16 +3,15 @@ package com.EdS.LeanKeyboardF.ime;
 import android.inputmethodservice.InputMethodService;
 import android.text.InputType;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import com.EdS.LeanKeyboardF.R;
+import com.EdS.LeanKeyboardF.utils.LeanbackDebugLog;
 
 import java.util.ArrayList;
 
 public class LeanbackSuggestionsFactory {
-    private static final String TAG = "LbSuggestionsFactory";
-    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG); // Use short text tag to fix "Log tag exceeds limit of 23 characters"
+    private static final String TAG = "LbSuggestionsFactory"; // Use short text tag to fix "Log tag exceeds limit of 23 characters"
     private static final int MODE_AUTO_COMPLETE = 2;
     private static final int MODE_DEFAULT = 0;
     private static final int MODE_DOMAIN = 1;
@@ -62,9 +61,9 @@ public class LeanbackSuggestionsFactory {
             mSuggestions.add(i, infos[i].getText().toString());
         }
 
-        if (DEBUG) {
+        if (LeanbackDebugLog.isEnabled(mContext)) {
             for (len = 0; len < mSuggestions.size(); ++len) {
-                Log.d(TAG, "completion " + len + ": " + mSuggestions.get(len));
+                LeanbackDebugLog.d(mContext, TAG, "completion " + len + ": " + mSuggestions.get(len));
             }
         }
 

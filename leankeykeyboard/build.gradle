@@ -65,10 +65,17 @@ android {
         playstore {
             dimension = "distribution"   // присвоєння
             applicationId "com.EdS.LeanKeyboardF"
+            // Play policy forbids an app distributed through Play from
+            // downloading and prompting install of an APK from outside
+            // Play - updates must go through Play's own mechanism. This
+            // flag is how the shared About screen decides whether to show
+            // the GitHub-based "check for update" action at all.
+            buildConfigField "boolean", "SUPPORTS_SELF_UPDATE", "false"
         }
         origin {
             dimension = "distribution"
             applicationId "com.EdS.LeanKeyboardF"
+            buildConfigField "boolean", "SUPPORTS_SELF_UPDATE", "true"
         }
 
         create("all") {
@@ -128,25 +135,34 @@ android {
 
     // Налаштування імен APK (опціонально, можна залишити як є)
     applicationVariants.all { variant ->
+        def project = "LeanKeyboardF"
+        def flavorNames = variant.productFlavors*.name
+        def localeFlavor = flavorNames.find { it != "playstore" && it != "origin" }
+
+        def localeTag
+        if (localeFlavor == "all" || localeFlavor == null) {
+            localeTag = ""
+        } else if (localeFlavor == "en") {
+            localeTag = "_EN"
+        } else {
+            def originalCode = detectedLocales.find { c ->
+                ("en" + c.replaceAll("[^a-zA-Z0-9]", "").capitalize()) == localeFlavor
+            }
+            def label = localeLabels[originalCode] ?: (originalCode ?: localeFlavor).toUpperCase()
+            localeTag = "_EN+${label}"
+        }
+
+        // Same tag used in the APK filename below, exposed at runtime so
+        // the in-app update checker (origin flavor only - see
+        // UpdateChecker) can build the exact asset filename for the
+        // release matching THIS variant's language combo, e.g.
+        // "LeanKeyboardF_EN+UA_v1.2.3_r.apk". Single source of truth:
+        // if this naming scheme ever changes, both places update together.
+        variant.buildConfigField "String", "UPDATE_ASSET_LOCALE_TAG", "\"${localeTag}\""
+
         variant.outputs.each { output ->
-            def project = "LeanKeyboardF"
             def buildType = variant.buildType.name.take(1)
             def version = variant.versionName
-            def flavorNames = variant.productFlavors*.name
-            def localeFlavor = flavorNames.find { it != "playstore" && it != "origin" }
-
-            def localeTag
-            if (localeFlavor == "all" || localeFlavor == null) {
-                localeTag = ""
-            } else if (localeFlavor == "en") {
-                localeTag = "_EN"
-            } else {
-                def originalCode = detectedLocales.find { c ->
-                    ("en" + c.replaceAll("[^a-zA-Z0-9]", "").capitalize()) == localeFlavor
-                }
-                def label = localeLabels[originalCode] ?: (originalCode ?: localeFlavor).toUpperCase()
-                localeTag = "_EN+${label}"
-            }
 
             def newApkName = sprintf("%s%s_v%s_%s.apk", [project, localeTag, version, buildType])
             output.outputFileName = new File(newApkName)

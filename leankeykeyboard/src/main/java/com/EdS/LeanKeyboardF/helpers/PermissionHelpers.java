@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build.VERSION;
 import androidx.core.app.ActivityCompat;
+import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
 
 @TargetApi(16)
 public class PermissionHelpers {
@@ -47,6 +48,21 @@ public class PermissionHelpers {
     public static boolean hasStoragePermissions(Context activity) {
         // Check if we have write permission
         return hasPermissions(activity, PERMISSIONS_STORAGE);
+    }
+
+    /**
+     * The storage permission is only a best-effort extra for voice input
+     * (nothing in the recognition code reads or writes files), so it must
+     * never block it forever. Met when it is granted, when the platform no
+     * longer offers it (API 34+, where MANAGE_EXTERNAL_STORAGE does not
+     * work either), or when the user was already asked once - on versions
+     * that silently deny the request, "granted" never becomes true and
+     * PermissionsActivity used to ask again and again.
+     */
+    public static boolean isStorageRequirementMet(Context context) {
+        return hasStoragePermissions(context)
+                || VERSION.SDK_INT >= 34
+                || LeanKeyPreferences.instance(context).wasStoragePermissionAsked();
     }
 
     public static boolean hasMicPermissions(Context activity) {

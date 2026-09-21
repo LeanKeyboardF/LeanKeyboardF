@@ -78,6 +78,18 @@ public class KeyboardManager {
         return kbd;
     }
 
+    /**
+     * True if the user has more than one keyboard/language enabled, i.e.
+     * there is actually something to switch to.
+     */
+    public boolean hasMultipleKeyboards() {
+        if (mKeyboardFactory.needUpdate() || mAllKeyboards == null) {
+            load();
+        }
+
+        return mAllKeyboards.size() > 1;
+    }
+
     public int getIndex() {
         return mKeyboardIndex;
     }

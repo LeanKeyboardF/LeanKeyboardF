@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exposes the app's own cache dir (where UpdateChecker downloads the
+     update APK to) as a content:// URI via FileProvider, so the system
+     installer can read it without any storage permission. -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="apk_updates" path="."/>
+</paths>

@@ -3,6 +3,7 @@ package com.EdS.LeanKeyboardF.addons.theme;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.util.Log;
@@ -15,6 +16,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.widget.ImageViewCompat;
 import com.EdS.LeanKeyboardF.ime.LeanbackKeyboardView;
 import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
+import com.EdS.LeanKeyboardF.utils.LegacyCompat;
 import com.EdS.LeanKeyboardF.R;
 
 public class ThemeManager {
@@ -168,7 +170,17 @@ public class ThemeManager {
             ImageButton actionButton = mRootView.findViewById(id);
 
             if (actionButton != null) {
-                ImageViewCompat.setImageTintList(actionButton, android.content.res.ColorStateList.valueOf(ContextCompat.getColor(mContext, keyTextColor)));
+                int tint = ContextCompat.getColor(mContext, keyTextColor);
+
+                if (LegacyCompat.isEnabled(mContext)) {
+                    // ImageViewCompat.setImageTintList() is a silent no-op
+                    // below API 21 for a plain ImageButton (the icon would
+                    // stay white on any theme) - a colour filter does the
+                    // same job on every version.
+                    actionButton.setColorFilter(tint, PorterDuff.Mode.SRC_IN);
+                } else {
+                    ImageViewCompat.setImageTintList(actionButton, android.content.res.ColorStateList.valueOf(tint));
+                }
             }
         }
     }

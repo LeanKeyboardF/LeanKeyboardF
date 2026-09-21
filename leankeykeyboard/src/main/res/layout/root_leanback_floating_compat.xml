@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    "Legacy Android mode" copy of root_leanback_floating.xml (Settings -> Misc ->
+    Advanced, see LegacyCompat). Identical, except that it includes
+    @layout/input_leanback_floating_compat instead of @layout/input_leanback_floating.
+    Keep it in sync with root_leanback_floating.xml when that one changes.
+-->
+<!--
+    Used only when "Floating keyboard" is enabled in Misc settings
+    (see LeanKeyPreferences#isFloatingKeyboard). Same structure as
+    root_leanback.xml, but the root and the key row wrap their content
+    instead of stretching full screen width, and the background is a
+    small rounded panel, so the keyboard looks like a compact floating
+    box centered near the bottom instead of a full-width bar.
+-->
+<RelativeLayout android:gravity="bottom|center" android:layout_gravity="bottom|center" android:orientation="vertical" android:id="@+id/root_ime"
+                android:background="@drawable/bg_floating_keyboard" android:paddingBottom="@dimen/keyboard_bottom_spacing"
+                android:paddingLeft="@dimen/floating_keyboard_horizontal_padding" android:paddingRight="@dimen/floating_keyboard_horizontal_padding"
+                android:paddingTop="@dimen/floating_keyboard_top_padding" android:focusable="true"
+                android:clipChildren="false" android:clipToPadding="false" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginBottom="@dimen/floating_keyboard_top_padding"
+                xmlns:android="http://schemas.android.com/apk/res/android">
+    <View android:id="@+id/candidate_background" android:background="@color/candidate_background" android:layout_width="wrap_content"
+          android:layout_height="wrap_content" android:layout_alignBottom="@id/suggestions_container" android:layout_alignLeft="@id/keyboard"
+          android:layout_alignParentTop="true" android:layout_alignRight="@id/keyboard"/>
+    <HorizontalScrollView android:gravity="center" android:id="@+id/suggestions_container" android:scrollbars="none" android:clipChildren="false"
+                          android:layout_width="wrap_content" android:layout_height="@dimen/key_height"
+                          android:layout_marginLeft="@dimen/candidate_scroll_view_horz_spacing"
+                          android:layout_marginRight="@dimen/candidate_scroll_view_horz_spacing" android:fillViewport="false"
+                          android:layout_alignParentTop="true" android:layout_centerHorizontal="true">
+        <LinearLayout android:gravity="center" android:orientation="horizontal" android:id="@+id/suggestions" android:clipChildren="false"
+                      android:layout_width="wrap_content" android:layout_height="wrap_content" android:divider="@null" android:showDividers="middle"/>
+    </HorizontalScrollView>
+    <LinearLayout android:gravity="center" android:id="@+id/keyboard" android:paddingTop="@dimen/keyboard_top_spacing" android:clipChildren="false"
+                  android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_below="@id/suggestions_container"
+                  android:layout_centerHorizontal="true">
+        <include layout="@layout/input_leanback_floating_compat"/>
+    </LinearLayout>
+    <include layout="@layout/selector"/>
+</RelativeLayout>

@@ -5,6 +5,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist.Guidance;
 import com.EdS.LeanKeyboardF.activity.settings.KbSettingsActivity2;
 import com.EdS.LeanKeyboardF.helpers.Helpers;
@@ -24,6 +25,11 @@ public class MiscFragment extends BaseSettingsFragment {
         addCheckedAction(R.string.keep_on_screen, R.string.keep_on_screen_desc, mPrefs::getForceShowKeyboard, mPrefs::setForceShowKeyboard);
         addCheckedAction(R.string.show_launcher_icon, R.string.show_launcher_icon_desc, this::getLauncherIconShown, this::setLauncherIconShown);
         addCheckedAction(R.string.enable_cyclic_navigation, R.string.enable_cyclic_navigation_desc, mPrefs::isCyclicNavigationEnabled, mPrefs::setCyclicNavigationEnabled);
+        addCheckedAction(R.string.physical_keyboard_mode, R.string.physical_keyboard_mode_desc, mPrefs::isPhysicalKeyboardMode, mPrefs::setPhysicalKeyboardMode);
+
+        // Sub-section with the debug-logging, "Legacy Android mode" and
+        // "unstable releases" checkboxes.
+        addNextAction(R.string.advanced, () -> startGuidedFragment(new AdvancedFragment()));
     }
 
     @NonNull
@@ -39,6 +45,12 @@ public class MiscFragment extends BaseSettingsFragment {
                 "",
                 icon
         );
+    }
+
+    private void startGuidedFragment(GuidedStepSupportFragment fragment) {
+        if (getFragmentManager() != null) {
+            GuidedStepSupportFragment.add(getFragmentManager(), fragment);
+        }
     }
 
     private void setLauncherIconShown(boolean shown) {

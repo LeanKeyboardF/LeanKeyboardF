@@ -42,6 +42,7 @@ public class LearningDictionary {
     private static final int MAX_WORD_LENGTH = 40;
 
     private static LearningDictionary sInstance;
+    private final Context mContext;
     private final SharedPreferences mPrefs;
 
     public static synchronized LearningDictionary instance(Context context) {
@@ -52,7 +53,23 @@ public class LearningDictionary {
     }
 
     private LearningDictionary(Context context) {
+        mContext = context;
         mPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+    }
+
+    // List.sort() and Comparator.comparingInt() only exist from Android 7
+    // (API 24) - on Android 4-6 they throw NoSuchMethodError the first time
+    // a suggestion is computed, which kills the keyboard service. With
+    // "Legacy Android mode" on, sort with Collections.sort() instead. With
+    // it off, this is the same code as before.
+    private void sortByValue(List<Map.Entry<String, Integer>> entries, boolean descending) {
+        if (LegacyCompat.isEnabled(mContext)) {
+            LegacyCompat.sortEntriesByValue(entries, descending);
+        } else if (descending) {
+            entries.sort((a, b) -> b.getValue() - a.getValue());
+        } else {
+            entries.sort(Comparator.comparingInt(Map.Entry::getValue));
+        }
     }
 
     public synchronized void learnWord(String word) {
@@ -149,7 +166,7 @@ public class LearningDictionary {
                 }
             }
 
-            matches.sort((a, b) -> b.getValue() - a.getValue());
+            sortByValue(matches, true);
             for (int i = 0; i < Math.min(max, matches.size()); i++) {
                 result.add(matches.get(i).getKey());
             }
@@ -185,7 +202,7 @@ public class LearningDictionary {
                 matches.add(new AbstractMap.SimpleEntry<>(word, targets.optInt(word, 0)));
             }
 
-            matches.sort((a, b) -> b.getValue() - a.getValue());
+            sortByValue(matches, true);
             for (int i = 0; i < Math.min(max, matches.size()); i++) {
                 result.add(matches.get(i).getKey());
             }
@@ -216,7 +233,7 @@ public class LearningDictionary {
             entries.add(new AbstractMap.SimpleEntry<>(key, map.optInt(key, 0)));
         }
 
-        entries.sort(Comparator.comparingInt(Map.Entry::getValue));
+        sortByValue(entries, false);
 
         int toRemove = entries.size() - maxSize;
         for (int i = 0; i < toRemove; i++) {
@@ -240,7 +257,7 @@ public class LearningDictionary {
             keyTotals.add(new AbstractMap.SimpleEntry<>(key, total));
         }
 
-        keyTotals.sort(Comparator.comparingInt(Map.Entry::getValue));
+        sortByValue(keyTotals, false);
 
         int toRemove = keyTotals.size() - maxSize;
         for (int i = 0; i < toRemove; i++) {

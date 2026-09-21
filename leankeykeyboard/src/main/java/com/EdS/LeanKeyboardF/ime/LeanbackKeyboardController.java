@@ -5,8 +5,8 @@ import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard.Key;
 import android.os.Handler;
 import android.text.InputType;
-import android.util.Log;
 import android.view.KeyEvent;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnHoverListener;
@@ -18,6 +18,8 @@ import android.widget.RelativeLayout;
 import androidx.annotation.NonNull;
 import com.EdS.LeanKeyboardF.ime.LeanbackKeyboardContainer.KeyFocus;
 import com.EdS.LeanKeyboardF.ime.pano.util.TouchNavSpaceTracker;
+import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
+import com.EdS.LeanKeyboardF.utils.LeanbackDebugLog;
 import com.EdS.LeanKeyboardF.R;
 
 import java.util.ArrayList;
@@ -54,6 +56,9 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
     private boolean mShowInput;
     private int mLastEditorIdPhysicalKeyboardWasUsed;
     private boolean mHideKeyboardWhenPhysicalKeyboardUsed = true;
+    private boolean mPhysicalAltDown;
+    private boolean mPhysicalShiftDown;
+    private boolean mPhysicalLangSwitchConsumed;
 
     public LeanbackKeyboardController(final InputMethodService context,
                                       final InputListener listener) {
@@ -320,16 +325,12 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
                 mInputListener.onEntry(InputListener.ENTRY_TYPE_LEFT, LeanbackKeyboardView.SHIFT_OFF, null);
                 return;
             case LeanbackKeyboardView.KEYCODE_SYM_TOGGLE:
-                if (Log.isLoggable("LbKbController", Log.DEBUG)) {
-                    Log.d("LbKbController", "mode change");
-                }
+                LeanbackDebugLog.d(mContext, TAG, "mode change");
 
                 mContainer.onModeChangeClick();
                 return;
             case LeanbackKeyboardView.KEYCODE_SHIFT:
-                if (Log.isLoggable("LbKbController", Log.DEBUG)) {
-                    Log.d("LbKbController", "shift");
-                }
+                LeanbackDebugLog.d(mContext, TAG, "shift");
 
                 mContainer.onShiftClick();
                 return;
@@ -342,16 +343,12 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
                 mContainer.onPeriodEntry();
                 return;
             case LeanbackKeyboardView.KEYCODE_LANG_TOGGLE:
-                if (Log.isLoggable("LbKbController", Log.DEBUG)) {
-                    Log.d("LbKbController", "language change");
-                }
+                LeanbackDebugLog.d(mContext, TAG, "language change");
 
                 mContainer.onLangKeyClick();
                 return;
             case LeanbackKeyboardView.KEYCODE_CLIPBOARD:
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "paste from clipboard");
-                }
+                LeanbackDebugLog.d(mContext, TAG, "paste from clipboard");
 
                 mContainer.onClipboardClick(mInputListener);
                 return;
@@ -442,7 +439,7 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
         mLongPressHandled = isEnterKey(keyCode) && mContainer.onKeyLongPress();
 
         if (mContainer.isMiniKeyboardOnScreen()) {
-            Log.d(TAG, "mini keyboard shown after long press");
+            LeanbackDebugLog.d(mContext, TAG, "mini keyboard shown after long press");
         }
 
         return mLongPressHandled;
@@ -656,6 +653,23 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
             button.setOnTouchListener(this);
             button.setOnHoverListener(this);
             button.setTag(TAG_GO);
+
+            // The 5 clipboard action buttons (Clear/Select All/Copy/Cut/Paste)
+            // are plain clickable ImageButtons: a direct tap is consumed by
+            // the button itself and never reaches the coordinate-based
+            // getBestFocus() hit-testing above (that logic still runs the
+            // D-pad/remote-navigation case). Give each one a real click
+            // listener so a touch always triggers the right action,
+            // regardless of exact pixel alignment with the keyboard rows.
+            for (int i = 0; i < mContainer.getClipboardButtonCount(); i++) {
+                final int index = i;
+                View clipboardButton = mContainer.getClipboardButton(index);
+                if (clipboardButton != null) {
+                    clipboardButton.setOnClickListener(v ->
+                            mInputListener.onEntry(InputListener.ENTRY_TYPE_CLIPBOARD, index, null));
+                }
+            }
+
             return view;
         } else {
             return null;
@@ -690,6 +704,92 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
         }
 
         return handled;
+    }
+
+    /**
+     * True if this key event should be treated as ordinary physical-keyboard
+     * input and passed straight through to the system/InputConnection,
+     * bypassing this controller's own D-pad-oriented key handling entirely.
+     *
+     * A real hardware Enter key must behave like a normal newline/submit
+     * key press. Internally, isEnterKey()/getSimplifiedKey() deliberately
+     * treat KEYCODE_ENTER (and KEYCODE_NUMPAD_ENTER) the same as
+     * KEYCODE_DPAD_CENTER, because on a remote control "OK" is sometimes
+     * reported as one and sometimes the other - but that also means a
+     * genuine Enter key on an attached hardware keyboard would otherwise
+     * "commit whatever on-screen key currently has focus" instead of
+     * inserting a newline / triggering the field's IME action.
+     */
+    public boolean isPhysicalPassthroughKey(int keyCode, @NonNull KeyEvent event) {
+        return isPhysicalKeyboardModeEnabled()
+                && isPhysicalKeyboardEvent(event)
+                && (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER);
+    }
+
+    /**
+     * Handles Alt/Shift tracking for a real hardware keyboard, independent of
+     * whether the on-screen keyboard view is currently shown.
+     *
+     * IMPORTANT: this must be called from the IME service *before* the
+     * isInputViewShown()-gated onKeyDown() above, and regardless of its
+     * result. Physical typing hides the on-screen keyboard window (see
+     * onPhysicalKeyboardKeyPressed()), and once hidden, isInputViewShown()
+     * is false, so LeanbackImeService's "isInputViewShown() && ..." check
+     * would short-circuit and never call onKeyDown() again for the rest of
+     * the typing session - silently breaking the Alt+Shift combo after the
+     * very first physical keystroke if it were handled only there.
+     *
+     * @return true if the key was consumed here (was Alt or Shift)
+     */
+    public boolean onPhysicalKeyDown(int keyCode, @NonNull KeyEvent event) {
+        // Diagnostic: if Alt+Shift "does nothing" on a given box, turn on
+        // Settings -> Misc -> Advanced -> "Debug logging" and check logcat for this
+        // line first (see README "Debug logging" for the exact command).
+        // treatedAsPhysical=false here means isPhysicalKeyboardEvent()
+        // rejected the event outright (neither deviceId>0 nor a
+        // SOURCE_KEYBOARD source flag matched) - this event never reaches
+        // trackPhysicalModifierDown() below at all. If the line never
+        // appears even while holding the keys, the OS itself is very
+        // likely intercepting Alt+Shift as a global "switch keyboard
+        // layout" shortcut before it ever reaches this IME.
+        LeanbackDebugLog.d(mContext, TAG, "onPhysicalKeyDown keyCode=" + keyCode
+                + " deviceId=" + event.getDeviceId()
+                + " source=" + event.getSource()
+                + " physicalModeEnabled=" + isPhysicalKeyboardModeEnabled()
+                + " treatedAsPhysical=" + isPhysicalKeyboardEvent(event));
+
+        if (isPhysicalKeyboardModeEnabled() && isPhysicalKeyboardEvent(event)) {
+            if (trackPhysicalModifierDown(keyCode)) {
+                // Alt+Shift together on a real hardware keyboard - switch to the next
+                // enabled keyboard language, the same as tapping the on-screen language key.
+                if (mPhysicalAltDown && mPhysicalShiftDown && !mPhysicalLangSwitchConsumed) {
+                    mPhysicalLangSwitchConsumed = true;
+                    // Alt+Shift is a common OS-level "switch keyboard layout"
+                    // shortcut, so it's easy to press out of habit. With only
+                    // one keyboard enabled, switchToNextKeyboard() would open
+                    // the language-picker screen and close the IME - avoid
+                    // that surprise when there is nothing to actually switch to.
+                    if (mContainer.hasMultipleKeyboards()) {
+                        mContainer.switchToNextKeyboard();
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Counterpart of {@link #onPhysicalKeyDown(int, KeyEvent)} - see that
+     * method for why this must be called unconditionally as well.
+     *
+     * @return true if the key was consumed here (was Alt or Shift)
+     */
+    public boolean onPhysicalKeyUp(int keyCode, @NonNull KeyEvent event) {
+        if (isPhysicalKeyboardModeEnabled() && isPhysicalKeyboardEvent(event)) {
+            return trackPhysicalModifierUp(keyCode);
+        }
+        return false;
     }
 
     /**
@@ -735,6 +835,76 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
 
         // stopping any soft-keyboard prediction
         //abortCorrectionAndResetPredictionState(false);
+    }
+
+    private boolean isPhysicalKeyboardModeEnabled() {
+        return LeanKeyPreferences.instance(mContext).isPhysicalKeyboardMode();
+    }
+
+    // A real, connected hardware keyboard is supposed to report a positive
+    // device id, with 0/-1 reserved for synthetic events (e.g. the
+    // on-screen keyboard's own injected key events) - but some Android TV
+    // boxes/remotes don't follow that: their whole input stack (D-pad AND
+    // an attached hardware keyboard alike) reports every event with
+    // deviceId == KeyCharacterMap.VIRTUAL_KEYBOARD (-1), which made the
+    // deviceId-only check below never match anything on that hardware and
+    // silently disabled physical-keyboard mode entirely (confirmed via the
+    // "Debug logging" adb logcat trace - see onPhysicalKeyDown below).
+    // Fall back to the event's source flags in that case: a genuine
+    // keyboard-class input device reports InputDevice.SOURCE_KEYBOARD
+    // regardless of what deviceId it's (mis)reporting, so it's a more
+    // reliable signal on this kind of hardware. This can't misfire on
+    // ordinary D-pad/remote navigation (DPAD_UP/DOWN/LEFT/RIGHT/CENTER):
+    // those share the same source on such remotes, but
+    // trackPhysicalModifierDown()/isPhysicalPassthroughKey() only ever
+    // act on Alt/Shift/Enter keycodes, so every other keycode still falls
+    // straight through unchanged.
+    private boolean isPhysicalKeyboardEvent(@NonNull KeyEvent event) {
+        if (event.getDeviceId() > 0) {
+            return true;
+        }
+
+        return (event.getSource() & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD;
+    }
+
+    /**
+     * Updates the tracked Alt/Shift state for a hardware key-down event.
+     * @return true if the key was Alt or Shift (and was therefore handled here)
+     */
+    private boolean trackPhysicalModifierDown(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_ALT_LEFT:
+            case KeyEvent.KEYCODE_ALT_RIGHT:
+                mPhysicalAltDown = true;
+                return true;
+            case KeyEvent.KEYCODE_SHIFT_LEFT:
+            case KeyEvent.KEYCODE_SHIFT_RIGHT:
+                mPhysicalShiftDown = true;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Updates the tracked Alt/Shift state for a hardware key-up event.
+     * @return true if the key was Alt or Shift (and was therefore handled here)
+     */
+    private boolean trackPhysicalModifierUp(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_ALT_LEFT:
+            case KeyEvent.KEYCODE_ALT_RIGHT:
+                mPhysicalAltDown = false;
+                mPhysicalLangSwitchConsumed = false;
+                return true;
+            case KeyEvent.KEYCODE_SHIFT_LEFT:
+            case KeyEvent.KEYCODE_SHIFT_RIGHT:
+                mPhysicalShiftDown = false;
+                mPhysicalLangSwitchConsumed = false;
+                return true;
+            default:
+                return false;
+        }
     }
 
     public boolean onKeyUp(int keyCode, KeyEvent keyEvent) {

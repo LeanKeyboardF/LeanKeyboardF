@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    "Legacy Android mode" copy of input_leanback_floating.xml (Settings -> Misc ->
+    Advanced, see LegacyCompat). The ONLY differences are in the five
+    clipboard ImageButtons:
+      - android:src is a PNG (@drawable/ic_action_*_compat) instead of a
+        vector drawable - vectors need API 21, Android 4 throws
+        Resources.NotFoundException while inflating them;
+      - android:background is a plain state list instead of
+        ?android:attr/selectableItemBackgroundBorderless - that attribute
+        needs API 21 too.
+    Keep it in sync with input_leanback_floating.xml when that one changes.
+-->
+<!--
+    Used only by root_leanback_floating.xml. Same as input_leanback.xml,
+    but the voice/enter/action-buttons side panels are wrap_content
+    instead of fill_parent, and the "enter" panel no longer pins itself
+    to layout_alignParentRight. That rule anchors a view to its own
+    parent's right edge - fine when the parent's width is fixed early
+    (full screen width, as in the default non-floating layout), but
+    circular/unstable when the parent's own width is being computed by
+    wrapping its content (floating mode): the enter button's width would
+    depend on the parent's resolved right edge, while the parent's width
+    itself depends on the enter button. That circular constraint is what
+    made keys/the enter button intermittently shrink to nothing or go
+    missing in floating mode. Here the enter panel just sits right after
+    the action buttons, sized to its own content - no circular reference.
+-->
+<RelativeLayout android:gravity="bottom" android:focusable="false" android:clipChildren="false" android:layout_width="wrap_content" android:layout_height="wrap_content"
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:leanbackime="http://schemas.android.com/apk/res-auto">
+    <LinearLayout android:id="@+id/keyboard" android:orientation="horizontal" android:clipChildren="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_centerHorizontal="true">
+        <com.EdS.LeanKeyboardF.addons.resize.ResizeableLeanbackKeyboardView android:id="@+id/main_keyboard" android:clipChildren="false" android:layout_width="wrap_content" android:layout_height="wrap_content" leanbackime:rowCount="5" leanbackime:columnCount="11" />
+    </LinearLayout>
+    <FrameLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_alignTop="@id/keyboard" android:layout_alignBottom="@id/keyboard" android:layout_centerHorizontal="true">
+        <com.EdS.LeanKeyboardF.ime.voice.RecognizerView android:id="@+id/voice" android:layout_gravity="center" android:visibility="invisible" android:layout_width="@dimen/recognizer_size" android:layout_height="@dimen/recognizer_size" />
+    </FrameLayout>
+    <LinearLayout android:id="@+id/action_buttons" android:orientation="vertical" android:clipChildren="false" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:paddingTop="@dimen/action_buttons_top_offset"
+                  android:layout_toRightOf="@id/keyboard" android:layout_alignTop="@id/keyboard" android:layout_alignBottom="@id/keyboard">
+        <ImageButton android:id="@+id/action_clear" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="@dimen/keyboard_vertical_gap"
+                     android:background="@drawable/bg_action_button_compat" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:src="@drawable/ic_action_clear_compat" android:contentDescription="@string/action_clear" />
+        <ImageButton android:id="@+id/action_select_all" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="@dimen/keyboard_vertical_gap"
+                     android:background="@drawable/bg_action_button_compat" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:src="@drawable/ic_action_select_all_compat" android:contentDescription="@string/action_select_all" />
+        <ImageButton android:id="@+id/action_copy" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="@dimen/keyboard_vertical_gap"
+                     android:background="@drawable/bg_action_button_compat" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:src="@drawable/ic_action_copy_compat" android:contentDescription="@string/action_copy" />
+        <ImageButton android:id="@+id/action_cut" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="@dimen/keyboard_vertical_gap"
+                     android:background="@drawable/bg_action_button_compat" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:src="@drawable/ic_action_cut_compat" android:contentDescription="@string/action_cut" />
+        <ImageButton android:id="@+id/action_paste" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1"
+                     android:background="@drawable/bg_action_button_compat" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:src="@drawable/ic_action_paste_compat" android:contentDescription="@string/action_paste" />
+    </LinearLayout>
+    <FrameLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_toRightOf="@id/action_buttons" android:layout_alignTop="@id/keyboard" android:layout_alignBottom="@id/keyboard">
+        <Button android:id="@+id/enter" android:textSize="@dimen/enter_key_font_size" android:textColor="@color/enter_key_font_color" android:layout_gravity="center" android:background="@null" android:paddingLeft="@dimen/enter_key_padding_horizontal" android:paddingRight="@dimen/enter_key_padding_horizontal" android:layout_width="wrap_content" android:layout_height="@dimen/enter_key_height" android:text="@string/label_next_key" android:fontFamily="sans-serif-regular" />
+    </FrameLayout>
+</RelativeLayout>

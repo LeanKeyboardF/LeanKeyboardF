@@ -9,6 +9,8 @@ import androidx.core.content.ContextCompat;
 import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist.Guidance;
 import androidx.leanback.widget.GuidedAction;
+import com.EdS.LeanKeyboardF.helpers.Helpers;
+import com.EdS.LeanKeyboardF.helpers.MessageHelpers;
 import com.EdS.LeanKeyboardF.R;
 
 import java.util.List;
@@ -53,6 +55,12 @@ public class AboutFragment extends GuidedStepSupportFragment {
         String link = URL_MAPPING.length > idx ? URL_MAPPING[idx] : THIS_URL;
 
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(link));
-        startActivity(intent);
+
+        // Many Android TV boxes have no browser at all - startActivity()
+        // would throw ActivityNotFoundException. Show the address instead
+        // so it can still be typed in on another device.
+        if (!Helpers.startIntent(getActivity(), intent)) {
+            MessageHelpers.showLongMessage(getActivity(), link);
+        }
     }
 }

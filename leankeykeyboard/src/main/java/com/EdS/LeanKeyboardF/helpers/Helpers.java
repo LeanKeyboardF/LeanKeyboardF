@@ -1,9 +1,8 @@
 package com.EdS.LeanKeyboardF.helpers;
 
 import android.app.Activity;
-import android.app.ActivityManager;
-import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -17,9 +16,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import com.EdS.LeanKeyboardF.activity.settings.KbSettingsActivity;
-import com.EdS.LeanKeyboardF.utils.LocaleUtility;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -27,10 +24,7 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.text.DateFormat;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -124,18 +118,6 @@ public class Helpers {
         new Handler(Looper.getMainLooper()).post(runnable);
     }
 
-    public static String unixToLocalDate(Context ctx, String timestamp) {
-        Locale current = LocaleUtility.getSystemLocale(ctx);
-        DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.LONG, current);
-        Date date;
-        if (timestamp == null) {
-            date = new Date();
-        } else {
-            date = new Date((long) Integer.parseInt(timestamp) * 1000);
-        }
-        return dateFormat.format(date);
-    }
-
     public static String runMultiMatcher(String input, String... patterns) {
         if (input == null) {
             return null;
@@ -171,33 +153,6 @@ public class Helpers {
         return name.substring(name.lastIndexOf('.') + 1);
     }
 
-    private static void killThisPackageProcess(Context context) {
-        Log.e("RestartServiceReceiver", "Attempting to kill com.EdS.LeanKeyboardF process");
-        ActivityManager activityManager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
-        activityManager.killBackgroundProcesses(getPackageName(context));
-    }
-
-    private static void restartService(Context context) {
-        // START YOUR SERVICE HERE
-        Log.e("RestartServiceReceiver", "Restarting Service");
-        //final Class<?> serviceClass = classForName("com.google.leanback.ime.LeanbackImeService");
-        //Intent serviceIntent = new Intent(context.getApplicationContext(), serviceClass);
-        Intent serviceIntent = new Intent();
-        serviceIntent.setComponent(new ComponentName(getPackageName(context), "com.google.leanback.ime.LeanbackImeService"));
-        context.stopService(serviceIntent);
-        context.startService(serviceIntent);
-    }
-
-    public static Class<?> classForName(String clazz) {
-        Class<?> serviceClass;
-        try {
-            serviceClass = Class.forName(clazz);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-        return serviceClass;
-    }
-    
     public static String getPackageName(Context ctx) {
         return ctx.getPackageName();
     }

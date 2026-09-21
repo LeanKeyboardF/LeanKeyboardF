@@ -175,7 +175,23 @@ for f in "${FLAVOR_LIST[@]}"; do
 done
 
 echo "[build] Running: gradlew ${TASKS[*]} -PappVersionName=$VERSION_NAME -PappVersionCode=$VERSION_CODE"
-"$SCRIPT_DIR/gradlew" "${TASKS[@]}" -PappVersionName="$VERSION_NAME" -PappVersionCode="$VERSION_CODE"
+
+# Run in small batches rather than one giant "gradlew t1 t2 t3 ... tN"
+# call. With two flavor dimensions this list grows by one assemble task
+# (and one R8 invocation) per locale added, all inside a single Gradle
+# daemon JVM if run as one invocation - that's what caused the R8
+# OutOfMemoryError in CI (see gradle.properties for the heap bump). Batching
+# re-invokes gradlew every $BATCH_SIZE tasks, so the daemon/heap gets
+# reused across a bounded number of R8 runs instead of growing without
+# limit as more languages get added. Lower BATCH_SIZE (env var) if it
+# still OOMs; raise it for faster local builds once you've confirmed
+# headroom.
+BATCH_SIZE="${BATCH_SIZE:-6}"
+for ((i = 0; i < ${#TASKS[@]}; i += BATCH_SIZE)); do
+    batch=("${TASKS[@]:i:BATCH_SIZE}")
+    echo "[build] Batch $((i / BATCH_SIZE + 1)): ${batch[*]}"
+    "$SCRIPT_DIR/gradlew" "${batch[@]}" -PappVersionName="$VERSION_NAME" -PappVersionCode="$VERSION_CODE"
+done
 
 # -------------------------------------------------------------
 # 4. Collect the APKs/AABs

@@ -5,7 +5,6 @@ import android.content.Context;
 import android.os.Handler;
 import android.text.InputType;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -16,6 +15,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
 import androidx.core.text.BidiFormatter;
 import com.EdS.LeanKeyboardF.ime.LeanbackKeyboardContainer.KeyFocus;
+import com.EdS.LeanKeyboardF.utils.LeanbackDebugLog;
 import com.EdS.LeanKeyboardF.R;
 
 public class LeanbackUtils {
@@ -270,7 +270,7 @@ public class LeanbackUtils {
             WindowManager manager = (WindowManager) service;
             metrics = new DisplayMetrics();
             manager.getDefaultDisplay().getMetrics(metrics);
-            Log.d(TAG, metrics.toString());
+            LeanbackDebugLog.d(context, TAG, metrics.toString());
 
             // new values
             metrics.density *= factor;

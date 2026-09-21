@@ -23,19 +23,19 @@
                   android:paddingTop="@dimen/action_buttons_top_offset"
                   android:layout_toRightOf="@id/keyboard" android:layout_alignTop="@id/keyboard" android:layout_alignBottom="@id/keyboard">
         <ImageButton android:id="@+id/action_clear" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="@dimen/keyboard_vertical_gap"
-                     android:background="@null" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:background="?android:attr/selectableItemBackgroundBorderless" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
                      android:src="@drawable/ic_action_clear" android:contentDescription="@string/action_clear" />
         <ImageButton android:id="@+id/action_select_all" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="@dimen/keyboard_vertical_gap"
-                     android:background="@null" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:background="?android:attr/selectableItemBackgroundBorderless" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
                      android:src="@drawable/ic_action_select_all" android:contentDescription="@string/action_select_all" />
         <ImageButton android:id="@+id/action_copy" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="@dimen/keyboard_vertical_gap"
-                     android:background="@null" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:background="?android:attr/selectableItemBackgroundBorderless" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
                      android:src="@drawable/ic_action_copy" android:contentDescription="@string/action_copy" />
         <ImageButton android:id="@+id/action_cut" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="@dimen/keyboard_vertical_gap"
-                     android:background="@null" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:background="?android:attr/selectableItemBackgroundBorderless" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
                      android:src="@drawable/ic_action_cut" android:contentDescription="@string/action_cut" />
         <ImageButton android:id="@+id/action_paste" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1"
-                     android:background="@null" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
+                     android:background="?android:attr/selectableItemBackgroundBorderless" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
                      android:src="@drawable/ic_action_paste" android:contentDescription="@string/action_paste" />
     </LinearLayout>
     <FrameLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_toRightOf="@id/action_buttons" android:layout_alignTop="@id/keyboard" android:layout_alignBottom="@id/keyboard" android:layout_alignParentRight="true">

@@ -26,6 +26,10 @@ public final class LeanKeyPreferences {
     private static final String KEYBOARD_SIZE_LEVEL = "keyboardSizeLevel";
     private static final String LEARN_KEYBOARD_ENABLED = "learnKeyboardEnabled";
     private static final String CLIPBOARD_HISTORY = "clipboardHistory";
+    private static final String DEBUG_LOGGING_ENABLED = "debugLoggingEnabled";
+    private static final String UNSTABLE_UPDATES_ENABLED = "unstableUpdatesEnabled";
+    private static final String LEGACY_ANDROID_COMPAT_ENABLED = "legacyAndroidCompatEnabled";
+    private static final String STORAGE_PERMISSION_ASKED = "storagePermissionAsked";
     private static LeanKeyPreferences sInstance;
     private final Context mContext;
     private SharedPreferences mPrefs;
@@ -126,11 +130,58 @@ public final class LeanKeyPreferences {
     }
 
     public boolean isPhysicalKeyboardMode() {
-        return mPrefs.getBoolean(PHYSICAL_KEYBOARD_MODE, false);
+        return mPrefs.getBoolean(PHYSICAL_KEYBOARD_MODE, true);
     }
 
     public void setPhysicalKeyboardMode(boolean enabled) {
         mPrefs.edit().putBoolean(PHYSICAL_KEYBOARD_MODE, enabled).apply();
+    }
+
+    // Off by default: turns on the verbose Log.d() tracing used to debug
+    // the physical-keyboard/mini-keyboard code paths (see README "Debug
+    // logging" section for the adb logcat command that reads it).
+    public boolean isDebugLoggingEnabled() {
+        return mPrefs.getBoolean(DEBUG_LOGGING_ENABLED, false);
+    }
+
+    public void setDebugLoggingEnabled(boolean enabled) {
+        mPrefs.edit().putBoolean(DEBUG_LOGGING_ENABLED, enabled).apply();
+    }
+
+    // Off by default: Settings -> Misc -> Advanced -> "Legacy Android
+    // mode". On = the keyboard service sticks to APIs that exist on
+    // Android 4-6 (nothing newer than API 23) and uses fallbacks where
+    // the default code path would need something newer - see
+    // LegacyCompat. Off = the code runs exactly as it always did.
+    public boolean isLegacyAndroidCompatEnabled() {
+        return mPrefs.getBoolean(LEGACY_ANDROID_COMPAT_ENABLED, false);
+    }
+
+    public void setLegacyAndroidCompatEnabled(boolean enabled) {
+        mPrefs.edit().putBoolean(LEGACY_ANDROID_COMPAT_ENABLED, enabled).apply();
+    }
+
+    // Off by default: origin-flavor "check for update" only looks at the
+    // latest STABLE GitHub release when this is off. On, it also offers
+    // pre-release (beta) builds - see UpdateChecker.
+    public boolean isUnstableUpdatesEnabled() {
+        return mPrefs.getBoolean(UNSTABLE_UPDATES_ENABLED, false);
+    }
+
+    public void setUnstableUpdatesEnabled(boolean enabled) {
+        mPrefs.edit().putBoolean(UNSTABLE_UPDATES_ENABLED, enabled).apply();
+    }
+
+    // Set once the storage permission prompt has been shown. Newer Android
+    // versions never grant the legacy storage permissions (the request
+    // comes back denied without any dialog), so "granted" alone can never
+    // end the permission flow there - see PermissionHelpers.
+    public boolean wasStoragePermissionAsked() {
+        return mPrefs.getBoolean(STORAGE_PERMISSION_ASKED, false);
+    }
+
+    public void setStoragePermissionAsked(boolean asked) {
+        mPrefs.edit().putBoolean(STORAGE_PERMISSION_ASKED, asked).apply();
     }
 
     public boolean isFloatingKeyboard() {

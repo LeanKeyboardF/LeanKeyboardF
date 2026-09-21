@@ -22,6 +22,8 @@ import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import com.EdS.LeanKeyboardF.ime.LeanbackKeyboardController.InputListener;
 import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
+import com.EdS.LeanKeyboardF.utils.LeanbackDebugLog;
+import com.EdS.LeanKeyboardF.utils.LegacyCompat;
 import com.EdS.LeanKeyboardF.utils.LearningDictionary;
 
 import java.util.ArrayList;
@@ -45,6 +47,7 @@ public class LeanbackImeService extends KeyMapperImeService {
     public static final String COMMAND_RESTART = "restart";
     private boolean mForceShowKbd;
     private boolean mLastFloatingState;
+    private boolean mLastLegacyCompatState;
 
     @SuppressLint("HandlerLeak")
     private final Handler mHandler = new Handler() {
@@ -82,9 +85,15 @@ public class LeanbackImeService extends KeyMapperImeService {
     @Override
     public void onCreate() {
         //setupDensity();
+
+        // Before super.onCreate(): that is where onInitializeInterface()
+        // builds the keyboard view, i.e. where the compat layouts are
+        // needed. Does nothing when "Legacy Android mode" is off.
+        LegacyCompat.runStartupChecks(this);
+
         super.onCreate();
 
-        Log.d(TAG, "onCreate");
+        LeanbackDebugLog.d(this, TAG, "onCreate");
 
         initSettings();
     }
@@ -105,6 +114,7 @@ public class LeanbackImeService extends KeyMapperImeService {
 
         if (mKeyboardController != null) {
             mKeyboardController.setSuggestionsEnabled(prefs.getSuggestionsEnabled());
+            mKeyboardController.setHideWhenPhysicalKeyboardUsed(!mForceShowKbd);
         }
     }
 
@@ -114,11 +124,23 @@ public class LeanbackImeService extends KeyMapperImeService {
     private void refreshSuggestions(InputConnection connection) {
         ArrayList<String> suggestions = computeSuggestions(connection);
 
-        if (mSuggestionsFactory.shouldSuggestionsAmend()) {
+        // updateSuggestions() (unlike ...Raw) fills slot 0 with the text
+        // typed so far. That is what password fields and "Learn Keyboard
+        // off" rely on: computeSuggestions() then returns the factory's
+        // list, whose slot 0 is only an empty placeholder - sent through
+        // the Raw path it showed up as a blank suggestion button.
+        if (mSuggestionsFactory.shouldSuggestionsAmend() || !isLearnedSuggestionsActive()) {
             mKeyboardController.updateSuggestions(suggestions);
         } else {
             mKeyboardController.updateSuggestionsRaw(suggestions);
         }
+    }
+
+    // True when the suggestions row shows Learn Keyboard's predictions
+    // (never in password fields, never when the feature is switched off).
+    private boolean isLearnedSuggestionsActive() {
+        return LeanKeyPreferences.instance(this).isLearnKeyboardEnabled()
+                && !LeanbackUtils.isPasswordField(getCurrentInputEditorInfo());
     }
 
     // Called right after a word-boundary character (space, punctuation)
@@ -182,8 +204,7 @@ public class LeanbackImeService extends KeyMapperImeService {
     // its own completions) with Learn Keyboard's own ranked predictions,
     // while it's enabled and the field isn't in that domain-amend mode.
     private ArrayList<String> computeSuggestions(InputConnection connection) {
-        if (mSuggestionsFactory.shouldSuggestionsAmend() || !LeanKeyPreferences.instance(this).isLearnKeyboardEnabled()
-                || LeanbackUtils.isPasswordField(getCurrentInputEditorInfo())) {
+        if (mSuggestionsFactory.shouldSuggestionsAmend() || !isLearnedSuggestionsActive()) {
             return mSuggestionsFactory.getSuggestions();
         }
 
@@ -442,7 +463,7 @@ public class LeanbackImeService extends KeyMapperImeService {
                             newIndex = Math.min(textLength, from + 1);
                         }
 
-                        Log.d(TAG, "direction key: index: " + newIndex);
+                        LeanbackDebugLog.d(this, TAG, "direction key: index: " + newIndex);
 
                         connection.setSelection(newIndex, newIndex);
                     }
@@ -498,14 +519,14 @@ public class LeanbackImeService extends KeyMapperImeService {
      */
     @Override
     public boolean onEvaluateInputViewShown() {
-        Log.d(TAG, "onEvaluateInputViewShown");
+        LeanbackDebugLog.d(this, TAG, "onEvaluateInputViewShown");
         return mForceShowKbd || super.onEvaluateInputViewShown();
     }
 
     // FireTV fix
     @Override
     public boolean onShowInputRequested(int flags, boolean configChange) {
-        Log.d(TAG, "onShowInputRequested");
+        LeanbackDebugLog.d(this, TAG, "onShowInputRequested");
         return mForceShowKbd || super.onShowInputRequested(flags, configChange);
     }
 
@@ -535,10 +556,18 @@ public class LeanbackImeService extends KeyMapperImeService {
     @Override
     public void onInitializeInterface() {
         mKeyboardController = new LeanbackKeyboardController(this, mInputListener);
-        mKeyboardController.setHideWhenPhysicalKeyboardUsed(!mForceShowKbd);
         mEnterSpaceBeforeCommitting = false;
         mSuggestionsFactory = new LeanbackSuggestionsFactory(this, MAX_SUGGESTIONS);
         mLastFloatingState = LeanKeyPreferences.instance(this).isFloatingKeyboard();
+        mLastLegacyCompatState = LegacyCompat.isEnabled(this);
+
+        // Runs here, not only from onCreate(): the system calls this method
+        // from inside super.onCreate() - i.e. BEFORE onCreate() got to read
+        // the settings - so "Keep on screen" was always seen as off and
+        // the keyboard hid itself on the first physical key press. It
+        // also re-applies the "suggestions" setting to a controller that
+        // was just rebuilt (rotation, floating/compat toggled).
+        initSettings();
     }
 
     @Override
@@ -576,6 +605,23 @@ public class LeanbackImeService extends KeyMapperImeService {
             return true;
         }
 
+        // A real hardware Enter/Numpad-Enter key must behave like a normal
+        // key press (insert newline / trigger the field's IME action), not
+        // "commit whatever on-screen key currently has focus" - which is
+        // what this controller normally does for Enter, since it doubles
+        // as the remote's D-pad-center/OK button. Bypass the controller
+        // entirely for this key so the system handles it the standard way.
+        if (mKeyboardController.isPhysicalPassthroughKey(keyCode, event)) {
+            return super.onKeyDown(keyCode, event);
+        }
+
+        // Must run unconditionally (not gated by isInputViewShown() below) -
+        // physical typing hides the on-screen keyboard, and the Alt+Shift
+        // language-switch combo still needs to keep working after that.
+        if (mKeyboardController.onPhysicalKeyDown(keyCode, event)) {
+            return true;
+        }
+
         return isInputViewShown() && mKeyboardController.onKeyDown(keyCode, event) || super.onKeyDown(keyCode, event);
     }
 
@@ -585,6 +631,15 @@ public class LeanbackImeService extends KeyMapperImeService {
         //// Hide keyboard on ESC key: https://github.com/yuliskov/SmartYouTubeTV/issues/142
         //event = mapEscToBack(event);
         //keyCode = mapEscToBack(keyCode);
+
+        // See the matching comment in onKeyDown() above.
+        if (mKeyboardController.isPhysicalPassthroughKey(keyCode, event)) {
+            return super.onKeyUp(keyCode, event);
+        }
+
+        if (mKeyboardController.onPhysicalKeyUp(keyCode, event)) {
+            return true;
+        }
 
         return isInputViewShown() && mKeyboardController.onKeyUp(keyCode, event) || super.onKeyUp(keyCode, event);
     }
@@ -607,10 +662,10 @@ public class LeanbackImeService extends KeyMapperImeService {
     @Override
     public int onStartCommand(final Intent intent, final int flags, final int startId) {
         if (intent != null) {
-            Log.d(TAG, "onStartCommand: " + intent.toUri(0));
+            LeanbackDebugLog.d(this, TAG, "onStartCommand: " + intent.toUri(0));
 
             if (intent.getBooleanExtra(COMMAND_RESTART, false)) {
-                Log.d(TAG, "onStartCommand: trying to restart service");
+                LeanbackDebugLog.d(this, TAG, "onStartCommand: trying to restart service");
 
                 reInitKeyboard();
 
@@ -640,8 +695,12 @@ public class LeanbackImeService extends KeyMapperImeService {
         // Toggling the setting while this service's process is still
         // alive would otherwise have no visible effect until the app is
         // restarted. Check on every show and rebuild if it changed.
+        //
+        // "Legacy Android mode" (Misc -> Advanced) picks a different
+        // set of layouts, so it needs the same rebuild.
         boolean currentFloatingState = LeanKeyPreferences.instance(this).isFloatingKeyboard();
-        if (currentFloatingState != mLastFloatingState) {
+        boolean currentLegacyCompatState = LegacyCompat.isEnabled(this);
+        if (currentFloatingState != mLastFloatingState || currentLegacyCompatState != mLastLegacyCompatState) {
             onInitializeInterface();
             mInputView = mKeyboardController.getView();
             setInputView(mInputView);

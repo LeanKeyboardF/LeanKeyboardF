@@ -28,7 +28,13 @@
         <Key android:keyLabel="с" />
         <Key android:keyLabel="д" />
         <Key android:keyLabel="з" />
-        <Key android:keyLabel="ц" android:keyEdgeFlags="right" />
+        <Key android:keyLabel="ц" />
+        <!-- Row was one key short (10 instead of the 11 every layout needs:
+             the navigation code indexes keys as row * 11 + column, and
+             LeanbackKeyboardView.ASCII_PERIOD assumes the space key is
+             number 47). Filled with a comma at the end so no existing
+             letter moves. -->
+        <Key android:keyLabel="," android:keyEdgeFlags="right" />
     </Row>
     <Row>
         <Key android:keyLabel="ь" android:keyEdgeFlags="left" />

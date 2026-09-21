@@ -12,14 +12,12 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.Keyboard.Key;
-import android.os.Build.VERSION;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.text.InputType;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -53,6 +51,8 @@ import com.EdS.LeanKeyboardF.addons.keyboards.KeyboardManager;
 import com.EdS.LeanKeyboardF.helpers.Helpers;
 import com.EdS.LeanKeyboardF.helpers.MessageHelpers;
 import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
+import com.EdS.LeanKeyboardF.utils.LegacyCompat;
+import com.EdS.LeanKeyboardF.utils.LeanbackDebugLog;
 import com.EdS.LeanKeyboardF.R;
 
 import java.util.ArrayList;
@@ -196,7 +196,17 @@ public class LeanbackKeyboardContainer {
         // "Floating keyboard" (Misc settings): a compact panel that hugs its
         // content instead of stretching the full screen width.
         final boolean isFloating = LeanKeyPreferences.instance(mContext).isFloatingKeyboard();
-        final int rootLayoutRes = isFloating ? R.layout.root_leanback_floating : R.layout.root_leanback;
+        // "Legacy Android mode" (Settings -> Misc -> Advanced): same
+        // layouts, but without the two things Android 4 cannot inflate -
+        // vector drawables and ?android:attr/selectableItemBackgroundBorderless
+        // (both API 21). See LegacyCompat.
+        final boolean legacyCompat = LegacyCompat.useCompatLayouts(mContext);
+        final int rootLayoutRes;
+        if (legacyCompat) {
+            rootLayoutRes = isFloating ? R.layout.root_leanback_floating_compat : R.layout.root_leanback_compat;
+        } else {
+            rootLayoutRes = isFloating ? R.layout.root_leanback_floating : R.layout.root_leanback;
+        }
         mRootView = (RelativeLayout) mContext.getLayoutInflater().inflate(rootLayoutRes, null);
         // inflate(id, null) has no parent to resolve the root tag's
         // android:layout_width/height/gravity against, so those XML
@@ -566,8 +576,9 @@ public class LeanbackKeyboardContainer {
      * @param context context
      */
     private void startRecognition(Context context) {
-        // MANAGE_EXTERNAL_STORAGE does not work on Android 14
-        if ((PermissionHelpers.hasStoragePermissions(context) || VERSION.SDK_INT >= 34) &&
+        // Same rule as PermissionsActivity (incl. "MANAGE_EXTERNAL_STORAGE
+        // does not work on Android 14"): storage never blocks voice input.
+        if (PermissionHelpers.isStorageRequirementMet(context) &&
             PermissionHelpers.hasMicPermissions(context)) {
             if (SpeechRecognizer.isRecognitionAvailable(context)) {
                 mRecognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -628,7 +639,28 @@ public class LeanbackKeyboardContainer {
     }
 
     public boolean dismissMiniKeyboard() {
-        return mMainKeyboardView.dismissMiniKeyboard();
+        boolean dismissed = mMainKeyboardView.dismissMiniKeyboard();
+        setClipboardRowDimmed(false);
+        return dismissed;
+    }
+
+    // The accent/variants mini-keyboard popup dims every other key on
+    // mMainKeyboardView (see LeanbackKeyboardView#createKeyImageView,
+    // mMiniKeyboardOnScreen/isInMiniKb alpha branch), but the 5 clipboard
+    // action buttons (Clear/Select All/Copy/Cut/Paste) are separate Views
+    // from mClipboardButtons, not entries in that grid - so they never
+    // picked up the dim. Mirror the same alpha here so the whole keyboard
+    // (main grid + action row) dims/undims together.
+    private void setClipboardRowDimmed(boolean dimmed) {
+        float alpha = dimmed
+                ? mContext.getResources().getInteger(R.integer.inactive_mini_kb_alpha) / 255f
+                : 1f;
+
+        for (View button : mClipboardButtons) {
+            if (button != null) {
+                button.setAlpha(alpha);
+            }
+        }
     }
 
     public boolean enableAutoEnterSpace() {
@@ -734,6 +766,23 @@ public class LeanbackKeyboardContainer {
         return mActionButtonView;
     }
 
+    // Exposes the 5 clipboard action buttons (Clear, Select All, Copy,
+    // Cut, Paste) so the controller can wire real click listeners on
+    // them directly. They are plain clickable ImageButtons, so a direct
+    // touch is consumed by the button itself before it ever reaches the
+    // coordinate-based hit-testing in getBestFocus() (which exists for
+    // D-pad/remote navigation) - relying on that math alone for touch
+    // meant tapping a button could miss its exact (theme/size-dependent)
+    // bounds and fall through to whatever main-keyboard key happens to
+    // be underneath instead.
+    public int getClipboardButtonCount() {
+        return mClipboardButtons.length;
+    }
+
+    public View getClipboardButton(int index) {
+        return (index >= 0 && index < mClipboardButtons.length) ? mClipboardButtons[index] : null;
+    }
+
     public Key getKey(int type, int index) {
         return type == KeyFocus.TYPE_MAIN ? this.mMainKeyboardView.getKey(index) : null;
     }
@@ -802,7 +851,7 @@ public class LeanbackKeyboardContainer {
                     break;
             }
 
-            Log.d(TAG, "Same key focus found! Direction: " + direction + " Key Label: " + oldFocus.label);
+            LeanbackDebugLog.d(mContext, TAG, "Same key focus found! Direction: " + direction + " Key Label: " + oldFocus.label);
         }
     }
 
@@ -1011,6 +1060,7 @@ public class LeanbackKeyboardContainer {
             if (mCurrKeyInfo.type == KeyFocus.TYPE_MAIN) {
                 mMainKeyboardView.onKeyLongPress();
                 if (mMainKeyboardView.isMiniKeyboardOnScreen()) {
+                    setClipboardRowDimmed(true);
                     mMiniKbKeyIndex = mCurrKeyInfo.index;
                     moveFocusToIndex(mMainKeyboardView.getBaseMiniKbIndex(), KeyFocus.TYPE_MAIN);
                     return true;
@@ -1150,9 +1200,15 @@ public class LeanbackKeyboardContainer {
     public void resetVoice() {
         mMainKeyboardView.setAlpha(mAlphaIn);
         mActionButtonView.setAlpha(mAlphaIn);
+        // The voice enter-animation hides the clipboard column as well
+        // (see VoiceIntroAnimator) - without restoring it here, closing the
+        // keyboard while the voice overlay is up left those 5 buttons
+        // invisible the next time the keyboard opened.
+        mClipboardContainer.setAlpha(mAlphaIn);
         mVoiceButtonView.setAlpha(mAlphaOut);
         mMainKeyboardView.setVisibility(View.VISIBLE);
         mActionButtonView.setVisibility(View.VISIBLE);
+        mClipboardContainer.setVisibility(View.VISIBLE);
         mVoiceButtonView.setVisibility(View.INVISIBLE);
     }
 
@@ -1267,6 +1323,14 @@ public class LeanbackKeyboardContainer {
      * Switch to next keyboard (looped).
      * {@link KeyboardManager KeyboardManager} is the source behind all keyboard implementations
      */
+    /**
+     * True if the user has more than one keyboard/language enabled, i.e.
+     * there is actually something for switchToNextKeyboard() to switch to.
+     */
+    public boolean hasMultipleKeyboards() {
+        return mKeyboardManager.hasMultipleKeyboards();
+    }
+
     public void switchToNextKeyboard() {
         KeyboardData nextKeyboard = mKeyboardManager.next();
         Keyboard currentKeyboard = mMainKeyboardView.getKeyboard();
@@ -1709,7 +1773,7 @@ public class LeanbackKeyboardContainer {
 
             MessageHelpers.showLongMessage(mContext, errorMsg);
 
-            Log.d(TAG, errorMsg);
+            LeanbackDebugLog.d(mContext, TAG, errorMsg);
         }
 
         @Override

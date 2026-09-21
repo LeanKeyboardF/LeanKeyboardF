@@ -2,8 +2,7 @@
 =========
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](./LICENSE)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/AmakerGame/LeanKeyboardF?style=flat-square)](https://github.com/AmakerGame/LeanKeyboardF/releases)
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/AmakerGame/LeanKeyboardF?include_prereleases&style=flat-square)](https://github.com/AmakerGame/LeanKeyboardF/releases)
+[![Latest release](https://img.shields.io/github/v/release/AmakerGame/LeanKeyboardF?include_prereleases&style=flat-square)](https://github.com/AmakerGame/LeanKeyboardF/releases)
 [![GitHub stars](https://img.shields.io/github/stars/AmakerGame/LeanKeyboardF?style=flat-square)](https://github.com/AmakerGame/LeanKeyboardF/stargazers)
 [![GitHub all releases](https://img.shields.io/github/downloads/AmakerGame/LeanKeyboardF/total?style=flat-square)](https://github.com/AmakerGame/LeanKeyboardF/releases)
 
@@ -48,6 +47,14 @@ LeanKeyboardF aims to extend the original project with additional tools for keyb
 - "Buffer" clipboard history key - shows recently copied/cut items to pick from
 - Learn Keyboard: learns words and word-pairs you type and suggests them, ranked by how often you use them - idea by [selivanoff](https://4pda.to/forum/index.php?showuser=1729354)
 - ABC layout for all languages supported in LeanKeyboardF
+- Last five words: quickly access the five most recently used words
+- Last word button: quickly insert the most recently used word
+- Clear word history: clear the recent word history from settings
+- **Advanced** subsection in **Settings → Misc** for troubleshooting options
+- **Legacy Android mode** for Android 4.4–6, providing improved compatibility with older Android versions
+- Compatibility fallbacks for older Android versions, including legacy layouts, icons, touch feedback and clipboard icon handling
+- Compatibility diagnostics through the `LbCompat` log tag when Debug logging is enabled
+- **In-app program updates**
 
 ---
 
@@ -60,6 +67,42 @@ LeanKeyboardF aims to extend the original project with additional tools for keyb
    adb install -r LeanKeyboardF.apk
    ```
 4. Enjoy!
+
+---
+
+### Debug logging
+
+Off by default. To trace physical-keyboard / mini-keyboard (accent popup) key
+handling on a device:
+
+1. Open **Settings -> Misc -> Advanced -> Debug logging** in the keyboard's own settings
+   screen and turn it on (it's off by default, so no extra logs are produced
+   normally).
+2. Reproduce the issue.
+3. Read the logs over ADB:
+   ```bash
+   adb logcat -s LbImeService LeanbackImeService LbKbContainer LbKbController LbSuggestionsFactory LbCompat
+   ```
+   (these are the log tags used across the `ime` package, plus `LbCompat` from Legacy Android mode; drop the ones you
+   don't care about, or use `adb logcat | grep -E "LbImeService|LbKbContainer|LbKbController"`
+   if `-s` filters too aggressively on your ADB version).
+4. Turn the toggle back off when done - the app doesn't do it automatically.
+
+---
+
+### Legacy Android mode (Android 4, 5, 6)
+
+Off by default. If the keyboard doesn't work on an old device (it crashes when
+you type, or doesn't appear at all on Android 4.x), open
+**Settings -> Misc -> Advanced** and turn on **Legacy Android mode**. The
+keyboard service then avoids APIs added in Android 7 (`List.sort`,
+`Comparator.comparingInt`) and Android 5 (vector drawables, ripple, image
+tint) and uses older equivalents instead. With it off, nothing changes. The
+practical minimum is Android 4.4 (API 19). The change applies the next time
+the keyboard is opened.
+
+If you change `input_leanback*.xml` or `root_leanback*.xml`, mirror the change
+in the matching `*_compat.xml`.
 
 ---
 
