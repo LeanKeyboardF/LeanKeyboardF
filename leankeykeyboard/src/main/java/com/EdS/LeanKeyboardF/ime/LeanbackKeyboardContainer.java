@@ -51,6 +51,7 @@ import com.EdS.LeanKeyboardF.addons.keyboards.KeyboardManager;
 import com.EdS.LeanKeyboardF.helpers.Helpers;
 import com.EdS.LeanKeyboardF.helpers.MessageHelpers;
 import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
+import com.EdS.LeanKeyboardF.utils.SystemClipboard;
 import com.EdS.LeanKeyboardF.utils.LegacyCompat;
 import com.EdS.LeanKeyboardF.utils.LeanbackDebugLog;
 import com.EdS.LeanKeyboardF.R;
@@ -84,6 +85,8 @@ public class LeanbackKeyboardContainer {
     private Button mActionButtonView;
     private View mClipboardContainer;
     private View[] mClipboardButtons = new View[5];
+    // Only present in the floating layouts (null otherwise).
+    private View mMoveButton;
     private boolean mShowingClipboardBuffer = false;
     private final float mAlphaIn;
     private final float mAlphaOut;
@@ -216,7 +219,7 @@ public class LeanbackKeyboardContainer {
         // a FrameLayout) - which defaults to MATCH_PARENT x MATCH_PARENT
         // if we don't set one explicitly here, overriding our "floating"
         // wrap_content layout no matter what the XML says.
-        mRootView.setLayoutParams(isFloating
+        FrameLayout.LayoutParams rootParams = isFloating
                 ? new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.WRAP_CONTENT,
                         FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -224,7 +227,13 @@ public class LeanbackKeyboardContainer {
                 : new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
                         FrameLayout.LayoutParams.WRAP_CONTENT,
-                        Gravity.BOTTOM));
+                        Gravity.BOTTOM);
+        // NOTE: InputMethodService#setInputView() adds the view with its own
+        // MATCH_PARENT x WRAP_CONTENT params, so these are not what finally
+        // counts. Anything that really must hold for the floating panel (the
+        // gap below it) is done by the wrapper that LeanbackImeService puts
+        // around the root view, not here.
+        mRootView.setLayoutParams(rootParams);
         mKeyboardsContainer = mRootView.findViewById(R.id.keyboard);
         mSuggestionsBg = mRootView.findViewById(R.id.candidate_background);
         mSuggestionsContainer = (HorizontalScrollView) mRootView.findViewById(R.id.suggestions_container);
@@ -233,11 +242,19 @@ public class LeanbackKeyboardContainer {
         mVoiceButtonView = (RecognizerView) mRootView.findViewById(R.id.voice);
         mActionButtonView = (Button) mRootView.findViewById(R.id.enter);
         mClipboardContainer = mRootView.findViewById(R.id.action_buttons);
+        // The floating layouts have a 6th button, "Move" - it is simply the
+        // last entry of the row, so focus navigation, the selector and touch
+        // handling treat it like the five clipboard buttons.
+        mMoveButton = mRootView.findViewById(R.id.action_move);
+        mClipboardButtons = new View[mMoveButton != null ? 6 : 5];
         mClipboardButtons[0] = mRootView.findViewById(R.id.action_clear);
         mClipboardButtons[1] = mRootView.findViewById(R.id.action_select_all);
         mClipboardButtons[2] = mRootView.findViewById(R.id.action_copy);
         mClipboardButtons[3] = mRootView.findViewById(R.id.action_cut);
         mClipboardButtons[4] = mRootView.findViewById(R.id.action_paste);
+        if (mMoveButton != null) {
+            mClipboardButtons[5] = mMoveButton;
+        }
         mSelector = mRootView.findViewById(R.id.selector);
         mKeySelector = mRootView.findViewById(R.id.key_selector);
         mKeySelectorSquare = ContextCompat.getDrawable(mContext, R.drawable.key_selector_square);
@@ -531,11 +548,9 @@ public class LeanbackKeyboardContainer {
                     dismissMiniKeyboard();
                     break;
                 case KeyFocus.TYPE_ACTION:
-                    LeanbackUtils.sendAccessibilityEvent(mActionButtonView, true);
                     dismissMiniKeyboard();
                     break;
                 case KeyFocus.TYPE_CLIPBOARD:
-                    LeanbackUtils.sendAccessibilityEvent(mClipboardButtons[focus.index], true);
                     dismissMiniKeyboard();
                     break;
                 case KeyFocus.TYPE_SUGGESTION:
@@ -698,7 +713,6 @@ public class LeanbackKeyboardContainer {
                 offsetRect(mRect, view);
                 if (newX < (float) mRect.right || actionLeft + 1 == count) {
                     view.requestFocus();
-                    LeanbackUtils.sendAccessibilityEvent(view.findViewById(R.id.text), true);
                     configureFocus(focus, mRect, actionLeft, KeyFocus.TYPE_SUGGESTION);
                     break;
                 }
@@ -775,6 +789,17 @@ public class LeanbackKeyboardContainer {
     // meant tapping a button could miss its exact (theme/size-dependent)
     // bounds and fall through to whatever main-keyboard key happens to
     // be underneath instead.
+    /** Highlights the Move button while the keyboard is in "move" mode. */
+    public void setMoveButtonActive(boolean active) {
+        if (mMoveButton instanceof ImageView) {
+            if (active) {
+                ((ImageView) mMoveButton).setColorFilter(0xFFFFC107);
+            } else {
+                ((ImageView) mMoveButton).clearColorFilter();
+            }
+        }
+    }
+
     public int getClipboardButtonCount() {
         return mClipboardButtons.length;
     }
@@ -981,7 +1006,6 @@ public class LeanbackKeyboardContainer {
                             }
 
                             suggestion.requestFocus();
-                            LeanbackUtils.sendAccessibilityEvent(suggestion.findViewById(R.id.text), true);
                             configureFocus(nextFocus, mRect, suggestIdx, KeyFocus.TYPE_SUGGESTION);
                             return true;
                         }
@@ -1463,6 +1487,11 @@ public class LeanbackKeyboardContainer {
     }
 
     private void showClipboardBuffer() {
+        // Pick up whatever is on the system clipboard right now (copied in
+        // another app, before this service started, ...), so the list is
+        // never behind it. Does nothing when sync is switched off.
+        SystemClipboard.importToHistory(mContext);
+
         List<String> history = LeanKeyPreferences.instance(mContext).getClipboardHistory();
 
         mClipboardBufferFullText.clear();

@@ -5,6 +5,7 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.util.Log;
 import android.view.View;
@@ -141,7 +142,22 @@ public class ThemeManager {
         RelativeLayout rootLayout = mRootView.findViewById(R.id.root_ime);
 
         if (rootLayout != null) {
-            rootLayout.setBackgroundColor(ContextCompat.getColor(mContext, keyboardBackground));
+            int backgroundColor = ContextCompat.getColor(mContext, keyboardBackground);
+            Drawable background = rootLayout.getBackground();
+
+            if (background instanceof GradientDrawable) {
+                // Floating keyboard: the background is a rounded shape with
+                // a border. setBackgroundColor() would replace it with a
+                // flat rectangle, so recolor the shape and keep its corners.
+                GradientDrawable shape = (GradientDrawable) background.mutate();
+                shape.setColor(backgroundColor);
+
+                int borderColor = (ContextCompat.getColor(mContext, keyTextColor) & 0x00FFFFFF) | 0x80000000;
+                int borderWidth = mContext.getResources().getDimensionPixelSize(R.dimen.floating_keyboard_border_width);
+                shape.setStroke(borderWidth, borderColor);
+            } else {
+                rootLayout.setBackgroundColor(backgroundColor);
+            }
         }
 
         View candidateLayout = mRootView.findViewById(R.id.candidate_background);

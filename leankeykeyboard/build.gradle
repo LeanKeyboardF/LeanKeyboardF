@@ -107,7 +107,7 @@ android {
             "uk": "UA", "ru": "RU", "de": "DE", "fr": "FR", "it": "IT",
             "es": "ES", "nl": "NL", "ro": "RO", "bg": "BG", "el": "EL",
             "tr": "TR", "sv": "SV", "sl": "SL", "th": "TH", "fa": "FA",
-            "ar": "AR", "is-rIS": "IS"
+            "ar": "AR", "is-rIS": "IS", "ja": "JA"
     ]
 
     detectedLocales.each { code ->

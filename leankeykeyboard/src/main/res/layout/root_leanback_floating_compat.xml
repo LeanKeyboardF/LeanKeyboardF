@@ -26,8 +26,8 @@
     <HorizontalScrollView android:gravity="center" android:id="@+id/suggestions_container" android:scrollbars="none" android:clipChildren="false"
                           android:layout_width="wrap_content" android:layout_height="@dimen/key_height"
                           android:layout_marginLeft="@dimen/candidate_scroll_view_horz_spacing"
-                          android:layout_marginRight="@dimen/candidate_scroll_view_horz_spacing" android:fillViewport="false"
-                          android:layout_alignParentTop="true" android:layout_centerHorizontal="true">
+                          android:layout_marginRight="@dimen/candidate_scroll_view_horz_spacing" android:fillViewport="true"
+                          android:layout_alignParentTop="true" android:layout_alignLeft="@id/keyboard" android:layout_alignRight="@id/keyboard">
         <LinearLayout android:gravity="center" android:orientation="horizontal" android:id="@+id/suggestions" android:clipChildren="false"
                       android:layout_width="wrap_content" android:layout_height="wrap_content" android:divider="@null" android:showDividers="middle"/>
     </HorizontalScrollView>

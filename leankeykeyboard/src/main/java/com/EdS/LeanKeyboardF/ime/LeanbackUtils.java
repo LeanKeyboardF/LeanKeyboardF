@@ -1,14 +1,11 @@
 package com.EdS.LeanKeyboardF.ime;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
-import android.os.Handler;
 import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.view.accessibility.AccessibilityEvent;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
@@ -19,9 +16,7 @@ import com.EdS.LeanKeyboardF.utils.LeanbackDebugLog;
 import com.EdS.LeanKeyboardF.R;
 
 public class LeanbackUtils {
-    private static final int ACCESSIBILITY_DELAY_MS = 250;
     private static final String EDITOR_LABEL = "label";
-    private static final Handler sAccessibilityHandler = new Handler();
     private static final String TAG = LeanbackUtils.class.getSimpleName();
 
     public static int getImeAction(EditorInfo info) {
@@ -70,15 +65,6 @@ public class LeanbackUtils {
 
     public static boolean isAlphabet(int letter) {
         return Character.isLetter(letter);
-    }
-
-    @SuppressLint("NewApi")
-    public static void sendAccessibilityEvent(final View view, boolean focusGained) {
-        if (view != null && focusGained) {
-            sAccessibilityHandler.removeCallbacksAndMessages(null);
-            sAccessibilityHandler.postDelayed(() -> view.sendAccessibilityEvent(AccessibilityEvent.TYPE_ANNOUNCEMENT), ACCESSIBILITY_DELAY_MS);
-        }
-
     }
 
     public static int getAmpersandLocation(InputConnection connection) {

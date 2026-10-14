@@ -147,8 +147,6 @@ public class RecognizerView extends RelativeLayout {
             } else {
                 mMicButton.setImageResource(R.drawable.ic_voice_available);
             }
-
-            LeanbackUtils.sendAccessibilityEvent(mMicButton, focused);
         }
 
     }

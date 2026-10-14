@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat;
 import androidx.leanback.widget.GuidanceStylist.Guidance;
 import com.EdS.LeanKeyboardF.helpers.MessageHelpers;
 import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
+import com.EdS.LeanKeyboardF.utils.SystemClipboard;
 import com.EdS.LeanKeyboardF.R;
 
 public class KbClipboardFragment extends BaseSettingsFragment {
@@ -19,11 +20,20 @@ public class KbClipboardFragment extends BaseSettingsFragment {
 
         mPrefs = LeanKeyPreferences.instance(getActivity());
 
+        addCheckedAction(R.string.clipboard_sync, R.string.clipboard_sync_desc,
+                mPrefs::isClipboardSyncEnabled, mPrefs::setClipboardSyncEnabled);
+
         addNextAction(R.string.clear_clipboard_buffer, this::onClearClicked);
     }
 
     private void onClearClicked() {
         mPrefs.clearClipboardHistory();
+
+        // With sync on the history is rebuilt from the system clipboard, so
+        // its current content must go too, or the last item would come back.
+        if (mPrefs.isClipboardSyncEnabled()) {
+            SystemClipboard.clear(getActivity());
+        }
 
         MessageHelpers.showMessage(getActivity(), R.string.clear_clipboard_buffer_message);
 

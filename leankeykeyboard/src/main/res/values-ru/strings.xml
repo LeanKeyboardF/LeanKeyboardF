@@ -99,10 +99,20 @@
     <string name="increase_size">Увеличить</string>
     <string name="decrease_size">Уменьшить</string>
     <string name="floating_keyboard">Плавающая клавиатура</string>
-    <string name="floating_keyboard_desc">Включить плавающий (перемещаемый) режим клавиатуры</string>
+    <string name="floating_keyboard_desc">Компактная панель, которую можно перемещать пультом (кнопка со стрелками)</string>
     <string name="floating_keyboard_warning_title">Внимание</string>
     <string name="floating_keyboard_warning_message">Плавающая клавиатура — экспериментальная функция и может работать нестабильно.</string>
     <string name="size_normal">Обычный</string>
     <string name="size_large">Большой</string>
     <string name="size_xlarge">Очень большой</string>
+    <string name="current_size">Текущий размер: %1$s</string>
+    <string name="keyboard_size_hint">Новый размер применяется при следующем открытии клавиатуры</string>
+    <string name="keyboard_size_screen_desc">Сделайте клавиатуру больше или меньше</string>
+    <string name="clipboard_sync">Синхронизация с системным буфером</string>
+    <string name="clipboard_sync_desc">То, что скопировано в других приложениях, появляется здесь, а выбранный элемент попадает в системный буфер</string>
+    <string name="action_move">Переместить клавиатуру</string>
+    <string name="move_keyboard_hint">Стрелки перемещают клавиатуру. OK или Назад — готово</string>
+    <string name="reset_floating_position">Сбросить положение клавиатуры</string>
+    <string name="floating_position_reset">Положение клавиатуры сброшено</string>
+    <string name="floating_keyboard_applies_hint">Применится при следующем открытии клавиатуры</string>
 </resources>

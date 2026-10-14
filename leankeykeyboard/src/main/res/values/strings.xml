@@ -77,7 +77,7 @@
     <string name="enable_cyclic_navigation">Сyclic navigation</string>
     <string name="enable_cyclic_navigation_desc">Сyclic navigation through keyboard</string>
     <string name="clipboard_buffer">Clipboard buffer</string>
-    <string name="clipboard_buffer_desc">Recent items copied or cut with this keyboard</string>
+    <string name="clipboard_buffer_desc">Recent copied or cut items, shared with the system clipboard</string>
     <string name="clear_clipboard_buffer">Clear</string>
     <string name="clear_clipboard_buffer_message">Clipboard cleared</string>
     <string name="about_original">GitHub LeanKeyboard</string>
@@ -109,10 +109,22 @@
     <string name="increase_size">Increase</string>
     <string name="decrease_size">Decrease</string>
     <string name="floating_keyboard">Floating keyboard</string>
-    <string name="floating_keyboard_desc">Enable floating (movable) keyboard mode</string>
+    <string name="floating_keyboard_desc">Compact keyboard panel you can move with the remote (arrows button)</string>
     <string name="floating_keyboard_warning_title">Warning</string>
     <string name="floating_keyboard_warning_message">Floating keyboard is an experimental feature and may not work perfectly.</string>
     <string name="size_normal">Normal</string>
     <string name="size_large">Large</string>
     <string name="size_xlarge">Extra large</string>
+    <string name="hide_activate_keyboard">Hide Activate Keyboard</string>
+    <string name="hide_activate_keyboard_desc">Hides the \"Activate Keyboard\" row from the main menu</string>
+    <string name="current_size">Current size: %1$s</string>
+    <string name="keyboard_size_hint">The new size is applied the next time the keyboard opens</string>
+    <string name="keyboard_size_screen_desc">Make the keyboard larger or smaller</string>
+    <string name="clipboard_sync">Sync with system clipboard</string>
+    <string name="clipboard_sync_desc">Items copied in other apps appear here, and the item you pick is put on the system clipboard</string>
+    <string name="action_move">Move keyboard</string>
+    <string name="move_keyboard_hint">Arrow keys move the keyboard. OK or Back to finish</string>
+    <string name="reset_floating_position">Reset keyboard position</string>
+    <string name="floating_position_reset">Keyboard position reset</string>
+    <string name="floating_keyboard_applies_hint">Applied the next time the keyboard opens</string>
 </resources>

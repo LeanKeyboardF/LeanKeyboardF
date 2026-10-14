@@ -29,6 +29,8 @@
     <dimen name="floating_keyboard_corner_radius">14.0dip</dimen>
     <dimen name="floating_keyboard_horizontal_padding">18.0dip</dimen>
     <dimen name="floating_keyboard_top_padding">10.0dip</dimen>
+    <dimen name="floating_keyboard_bottom_margin">10.0dip</dimen>
+    <dimen name="enter_key_min_width">104.0dip</dimen>
     <dimen name="floating_keyboard_border_width">1.5dip</dimen>
     <!-- Voice input -->
     <dimen name="action_button_size">64.0dip</dimen>

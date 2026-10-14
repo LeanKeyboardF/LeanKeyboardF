@@ -19,6 +19,7 @@ name: Build APKs
 # updates as if they were you. Only do this on a PRIVATE repository you
 # fully trust. For a public repo, use encrypted repo secrets + a keystore
 # cached outside git instead.
+
 on:
   workflow_dispatch:
     inputs:
@@ -36,20 +37,19 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Cache Gradle
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
@@ -65,7 +65,7 @@ jobs:
         run: ./build.sh "${{ github.event.inputs.version }}" "${{ github.event.inputs.flavors }}"
 
       - name: Upload APKs / AAB
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: LeanKeyboardF-v${{ github.event.inputs.version }}
           path: |

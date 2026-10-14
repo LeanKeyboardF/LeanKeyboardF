@@ -27,6 +27,14 @@ public class BaseSettingsFragment extends GuidedStepSupportFragment {
         void onClick();
     }
 
+    protected interface GetVisible {
+        boolean isVisible();
+    }
+
+    protected interface GetText {
+        String getText();
+    }
+
     // Radio action
 
     protected void addRadioAction(int titleResId, int descResId, GetChecked getChecked, OnChecked onChecked) {
@@ -66,7 +74,14 @@ public class BaseSettingsFragment extends GuidedStepSupportFragment {
     // Nested action
 
     protected void addNextAction(int resId, OnClick onClick) {
-        mNextActions.put(mId++, new NextAction(resId, onClick));
+        addNextAction(resId, () -> true, onClick);
+    }
+
+    // Same as above, but the row is only added when "visible" is true -
+    // checked fresh every time the action list is (re)built, e.g. when
+    // returning to this screen from a child fragment.
+    protected void addNextAction(int resId, GetVisible visible, OnClick onClick) {
+        mNextActions.put(mId++, new NextAction(resId, visible, onClick));
     }
 
     // Info-only action (plain label row, no checkbox and no chevron -
@@ -74,6 +89,12 @@ public class BaseSettingsFragment extends GuidedStepSupportFragment {
     // looking like a toggle)
 
     protected void addInfoAction(String title, String desc) {
+        addInfoAction(() -> title, () -> desc);
+    }
+
+    // Same, but the text is re-read every time the list is rebuilt
+    // (see refreshActions()), so the row can show a live value.
+    protected void addInfoAction(GetText title, GetText desc) {
         mInfoActions.put(mId++, new InfoAction(title, desc));
     }
 
@@ -96,6 +117,49 @@ public class BaseSettingsFragment extends GuidedStepSupportFragment {
         }
     }
 
+    // Rebuilds the whole action list (visibility of next-actions, checked
+    // state of checkboxes) so a screen sitting under another one on the
+    // back stack picks up a preference change as soon as you return to it.
+    // Action ids are stable across rebuilds, so no duplicate rows appear.
+    protected void refreshActions() {
+        // getView() is the direct signal that onCreateView() already ran;
+        // calling setActions() earlier could crash on some leanback versions.
+        if (getView() == null) {
+            return;
+        }
+
+        try {
+            // Remember the focused row by its id, not by position: rows can
+            // appear/disappear (e.g. "Activate Keyboard" being hidden), and
+            // a stale index would move focus to a neighbouring row.
+            long selectedId = -1;
+            int selected = getSelectedActionPosition();
+            if (getActions() != null && selected >= 0 && selected < getActions().size()) {
+                selectedId = getActions().get(selected).getId();
+            }
+
+            List<GuidedAction> actions = new java.util.ArrayList<>();
+            onCreateActions(actions, null);
+            setActions(actions);
+
+            for (int i = 0; i < actions.size(); i++) {
+                if (actions.get(i).getId() == selectedId) {
+                    setSelectedActionPosition(i);
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            // Keep the last-known list rather than crash the settings UI
+            // over a live-refresh nicety.
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        refreshActions();
+    }
+
     @Override
     public void onCreateActions(@NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
         for (long id : mCheckedActions.keySet()) {
@@ -107,7 +171,10 @@ public class BaseSettingsFragment extends GuidedStepSupportFragment {
         }
 
         for (long id : mNextActions.keySet()) {
-            addNextItem(id, mNextActions.get(id), actions);
+            NextAction nextAction = mNextActions.get(id);
+            if (nextAction.isVisible()) {
+                addNextItem(id, nextAction, actions);
+            }
         }
     }
 
@@ -140,6 +207,9 @@ public class BaseSettingsFragment extends GuidedStepSupportFragment {
                 .infoOnly(true)
                 .title(infoAction.getTitle())
                 .description(infoAction.getDesc())
+                // Without this the description is treated as one short line
+                // and ellipsized instead of wrapping.
+                .multilineDescription(true)
                 .build();
         actions.add(action);
     }
@@ -150,6 +220,9 @@ public class BaseSettingsFragment extends GuidedStepSupportFragment {
                 .checkSetId(checkedAction.getItemTypeId())
                 .id(id)
                 .title(checkedAction.getTitle())
+                // Same as in addInfoItem(): wrap long descriptions
+                // instead of cutting them off with "...".
+                .multilineDescription(true)
                 .build();
 
         if (checkedAction.getDesc() != null) {
@@ -214,11 +287,17 @@ public class BaseSettingsFragment extends GuidedStepSupportFragment {
 
     private static class NextAction {
         private final int mResId;
+        private final GetVisible mVisible;
         private final OnClick mOnClick;
 
-        public NextAction(int resId, OnClick onClick) {
+        public NextAction(int resId, GetVisible visible, OnClick onClick) {
             mResId = resId;
+            mVisible = visible;
             mOnClick = onClick;
+        }
+
+        public boolean isVisible() {
+            return mVisible.isVisible();
         }
 
         public int getResId() {
@@ -231,20 +310,20 @@ public class BaseSettingsFragment extends GuidedStepSupportFragment {
     }
 
     private static class InfoAction {
-        private final String mTitle;
-        private final String mDesc;
+        private final GetText mTitle;
+        private final GetText mDesc;
 
-        public InfoAction(String title, String desc) {
+        public InfoAction(GetText title, GetText desc) {
             mTitle = title;
             mDesc = desc;
         }
 
         public String getTitle() {
-            return mTitle;
+            return mTitle.getText();
         }
 
         public String getDesc() {
-            return mDesc;
+            return mDesc.getText();
         }
     }
 }

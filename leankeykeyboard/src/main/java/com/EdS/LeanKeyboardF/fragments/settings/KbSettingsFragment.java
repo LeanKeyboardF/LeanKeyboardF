@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat;
 import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist.Guidance;
 import com.EdS.LeanKeyboardF.activity.settings.KbActivationActivity;
+import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
 import com.EdS.LeanKeyboardF.R;
 
 public class KbSettingsFragment extends BaseSettingsFragment {
@@ -16,7 +17,9 @@ public class KbSettingsFragment extends BaseSettingsFragment {
     public void onAttach(Context context) {
         super.onAttach(context);
 
-        addNextAction(R.string.activate_keyboard, () -> {
+        LeanKeyPreferences prefs = LeanKeyPreferences.instance(context);
+
+        addNextAction(R.string.activate_keyboard, () -> !prefs.isActivateKeyboardHidden(), () -> {
             Intent intent = new Intent(getActivity(), KbActivationActivity.class);
             startActivity(intent);
         });

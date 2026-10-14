@@ -216,10 +216,10 @@ public class LeanbackKeyboardView extends FrameLayout {
                 iconHeight = newSize;
             }
 
-            if (key.codes[0] == ASCII_SPACE && LeanKeyPreferences.instance(getContext()).getEnlargeKeyboard()) {
+            if (key.codes[0] == ASCII_SPACE && mSizeScale > 1.0f) {
                 // space fix for large interface
                 float gap = getResources().getDimension(R.dimen.keyboard_horizontal_gap);
-                float gapDelta = (gap * 1.3f) - gap;
+                float gapDelta = (gap * mSizeScale) - gap;
                 iconWidth -= gapDelta * (ASCII_PERIOD_LEN - 1);
             }
 
@@ -496,6 +496,11 @@ public class LeanbackKeyboardView extends FrameLayout {
         }
     }
 
+    // Scale actually applied to the keys (1 = normal). Set by
+    // ResizeableLeanbackKeyboardView, which may use less than the size asked
+    // for in Settings when that would not fit the screen.
+    protected float mSizeScale = 1.0f;
+
     public void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         if (mKeyboard == null) {
@@ -537,16 +542,6 @@ public class LeanbackKeyboardView extends FrameLayout {
             }
 
             if (indexFull != mFocusIndex || clicked != mFocusClicked) {
-                if (indexFull != mFocusIndex) {
-                    if (mFocusIndex != -1) {
-                        LeanbackUtils.sendAccessibilityEvent(mKeyImageViews[mFocusIndex], false);
-                    }
-
-                    if (indexFull != -1) {
-                        LeanbackUtils.sendAccessibilityEvent(mKeyImageViews[indexFull], true);
-                    }
-                }
-
                 if (mCurrentFocusView != null) {
                     mCurrentFocusView.animate()
                                      .scaleX(scale)

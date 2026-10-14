@@ -56,6 +56,9 @@
         <!-- Korean -->
         <item>한국어|ko_kr</item>
         <item>한국어 (ABC)|ko_kr|abc</item>
+        <!-- Japanese: 50-sound (gojuon) kana keyboards. "(ABC)" = the katakana variant (abc_ja.xml) -->
+        <item>日本語|ja</item>
+        <item>日本語 (カタカナ)|ja|abc</item>
         <item>ქართული|ka</item>
         <item>ქართული (ABC)|ka|abc</item>
         <!-- Portuguese -->

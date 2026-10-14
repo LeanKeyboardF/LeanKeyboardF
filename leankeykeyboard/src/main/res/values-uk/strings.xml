@@ -67,7 +67,7 @@
     <string name="enable_cyclic_navigation">Циклічна навігація</string>
     <string name="enable_cyclic_navigation_desc">Циклічна навігація по клавіатурі</string>
     <string name="clipboard_buffer">Буфер обміну</string>
-    <string name="clipboard_buffer_desc">Останні елементи, скопійовані або вирізані цією клавіатурою</string>
+    <string name="clipboard_buffer_desc">Останні скопійовані або вирізані елементи, спільні із системним буфером обміну</string>
     <string name="clear_clipboard_buffer">Очистити</string>
     <string name="clear_clipboard_buffer_message">Очищено буфер</string>
     <string name="about_original">GitHub LeanKeyboard</string>
@@ -99,10 +99,22 @@
     <string name="increase_size">Збільшити</string>
     <string name="decrease_size">Зменшити</string>
     <string name="floating_keyboard">Плаваюча клавіатура</string>
-    <string name="floating_keyboard_desc">Увімкнути плаваючий (переміщуваний) режим клавіатури</string>
+    <string name="floating_keyboard_desc">Компактна панель, яку можна переміщувати пультом (кнопка зі стрілками)</string>
     <string name="floating_keyboard_warning_title">Увага</string>
     <string name="floating_keyboard_warning_message">Плаваюча клавіатура — експериментальна функція і може працювати нестабільно.</string>
     <string name="size_normal">Звичайний</string>
     <string name="size_large">Великий</string>
     <string name="size_xlarge">Дуже великий</string>
+    <string name="hide_activate_keyboard">Приховати активацію клавіатури</string>
+    <string name="hide_activate_keyboard_desc">Приховує пункт \"Активувати клавіатуру\" в головному меню</string>
+    <string name="current_size">Поточний розмір: %1$s</string>
+    <string name="keyboard_size_hint">Новий розмір застосується, коли клавіатура відкриється наступного разу</string>
+    <string name="keyboard_size_screen_desc">Зробіть клавіатуру більшою або меншою</string>
+    <string name="clipboard_sync">Синхронізація з системним буфером</string>
+    <string name="clipboard_sync_desc">Те, що скопійовано в інших застосунках, з\'являється тут, а вибраний елемент потрапляє в системний буфер</string>
+    <string name="action_move">Перемістити клавіатуру</string>
+    <string name="move_keyboard_hint">Стрілки переміщують клавіатуру. OK або Назад — готово</string>
+    <string name="reset_floating_position">Скинути позицію клавіатури</string>
+    <string name="floating_position_reset">Позицію клавіатури скинуто</string>
+    <string name="floating_keyboard_applies_hint">Застосується, коли клавіатура відкриється наступного разу</string>
 </resources>

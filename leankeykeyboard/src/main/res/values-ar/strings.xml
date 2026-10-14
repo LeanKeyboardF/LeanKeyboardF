@@ -27,7 +27,7 @@
     <!--  BEGIN: autotranslated strings  -->
     <string name="word_separators">"‏‮ .,;:!?
         ()[]*&amp;@{}/&lt;>_+=|‬‏"</string>
-    <string name="subtype_generic">٪س</string>
+    <string name="subtype_generic">%s</string>
     <string name="keyboardview_keycode_lang">لغة</string>
     <string name="keyboardview_keycode_voice">مدخل الصوت</string>
     <string name="language_dialog_title">حدد تخطيطات إضافية</string>
@@ -40,7 +40,7 @@
     <string name="kb_settings_desc">إعدادات لوحة المفاتيح</string>
     <string name="activate_keyboard">تنشيط لوحة المفاتيح</string>
     <string name="change_layout">غير الواجهة او التصميم</string>
-    <string name="enable_kb_in_system_prefs">تحتاج إلى تمكين٪ s في تفضيلات النظام</string>
+    <string name="enable_kb_in_system_prefs">تحتاج إلى تمكين %s في تفضيلات النظام</string>
     <string name="about">حول</string>
     <string name="about_desc">عن التطبيق</string>
     <string name="keep_on_screen_desc">احتفظ به على الشاشة أثناء تنشيط لوحة المفاتيح الفعلية</string>

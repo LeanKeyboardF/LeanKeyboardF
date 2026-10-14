@@ -2,17 +2,21 @@ package com.EdS.LeanKeyboardF.ime;
 
 import android.annotation.SuppressLint;
 import android.app.Service;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.inputmethodservice.InputMethodService;
 import android.os.Build.VERSION;
 import android.os.Handler;
 import android.os.Message;
 import android.util.DisplayMetrics;
+import android.util.SparseBooleanArray;
+import android.widget.FrameLayout;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.CompletionInfo;
@@ -20,11 +24,14 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
+import com.EdS.LeanKeyboardF.R;
 import com.EdS.LeanKeyboardF.ime.LeanbackKeyboardController.InputListener;
+import com.EdS.LeanKeyboardF.utils.JapaneseKana;
 import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
 import com.EdS.LeanKeyboardF.utils.LeanbackDebugLog;
 import com.EdS.LeanKeyboardF.utils.LegacyCompat;
 import com.EdS.LeanKeyboardF.utils.LearningDictionary;
+import com.EdS.LeanKeyboardF.utils.SystemClipboard;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +55,20 @@ public class LeanbackImeService extends KeyMapperImeService {
     private boolean mForceShowKbd;
     private boolean mLastFloatingState;
     private boolean mLastLegacyCompatState;
+    private int mLastSizeLevel;
+
+    // The keyboard's root view while the floating keyboard is on (it sits
+    // inside a wrapper, see createInputView()); null otherwise.
+    private View mFloatingRoot;
+
+    // Keys swallowed while moving the floating keyboard: their key-up must
+    // be swallowed too, otherwise the OK key-up that ends "move" mode would
+    // press whatever button is focused (the Move button) and start it again.
+    private final SparseBooleanArray mMoveKeysDown = new SparseBooleanArray();
+
+    // Keeps the "Буфер" history in step with the system clipboard.
+    private final ClipboardManager.OnPrimaryClipChangedListener mClipboardListener =
+            () -> SystemClipboard.importToHistory(this);
 
     @SuppressLint("HandlerLeak")
     private final Handler mHandler = new Handler() {
@@ -96,11 +117,35 @@ public class LeanbackImeService extends KeyMapperImeService {
         LeanbackDebugLog.d(this, TAG, "onCreate");
 
         initSettings();
+
+        try {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (clipboard != null) {
+                clipboard.addPrimaryClipChangedListener(mClipboardListener);
+            }
+        } catch (RuntimeException e) {
+            LeanbackDebugLog.d(this, TAG, "clipboard listener not registered: " + e);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        try {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (clipboard != null) {
+                clipboard.removePrimaryClipChangedListener(mClipboardListener);
+            }
+        } catch (RuntimeException e) {
+            // service is going away anyway
+        }
+
+        super.onDestroy();
     }
 
     private void setupDensity() {
-        if (LeanKeyPreferences.instance(this).getEnlargeKeyboard()) {
-            DisplayMetrics metrics = LeanbackUtils.createMetricsFrom(this, 1.3f);
+        float sizeFactor = LeanKeyPreferences.instance(this).getKeyboardSizeFactor();
+        if (sizeFactor > 1.0f) {
+            DisplayMetrics metrics = LeanbackUtils.createMetricsFrom(this, sizeFactor);
 
             if (metrics != null) {
                 getResources().getDisplayMetrics().setTo(metrics);
@@ -287,11 +332,73 @@ public class LeanbackImeService extends KeyMapperImeService {
     // runs, while the selection still exists, so the copied/cut text can
     // be added to the "Буфер" history (not just the single system
     // clipboard slot the OS itself keeps).
+    // "゛゜" key of the Japanese layouts: replaces the character before the
+    // cursor with its next form (か -> が, は -> ば -> ぱ, つ -> っ -> づ ...).
+    // Does nothing when text is selected, when there is no character before
+    // the cursor, or when that character has no other form.
+    private void transformPreviousKana(InputConnection connection) {
+        CharSequence selected = connection.getSelectedText(0);
+        if (selected != null && selected.length() > 0) {
+            return;
+        }
+
+        CharSequence before = connection.getTextBeforeCursor(1, 0);
+        if (before == null || before.length() != 1) {
+            return;
+        }
+
+        Character next = JapaneseKana.next(before.charAt(0));
+        if (next == null) {
+            return;
+        }
+
+        connection.beginBatchEdit();
+        connection.deleteSurroundingText(1, 0);
+        connection.commitText(String.valueOf(next), 1);
+        connection.endBatchEdit();
+    }
+
     private void captureSelectionToClipboardHistory(InputConnection connection) {
         CharSequence selected = connection.getSelectedText(0);
 
         if (selected != null && selected.length() > 0) {
             LeanKeyPreferences.instance(this).addClipboardHistoryItem(selected.toString());
+        }
+    }
+
+    // Copy / Cut. The app is asked to do the real copy/cut first (it knows
+    // best, e.g. rich text). Some apps ignore these context-menu actions;
+    // then the text is put on the system clipboard here, and for Cut the
+    // selection is removed, so the buttons still behave like the real
+    // thing instead of silently doing nothing.
+    private void copyOrCutSelection(InputConnection connection, boolean cut) {
+        CharSequence selected = connection.getSelectedText(0);
+        String text = selected == null ? null : selected.toString();
+
+        captureSelectionToClipboardHistory(connection);
+
+        boolean handled = connection.performContextMenuAction(cut ? android.R.id.cut : android.R.id.copy);
+
+        if (!handled && text != null && !text.isEmpty()) {
+            SystemClipboard.writeText(this, text);
+
+            if (cut) {
+                connection.commitText("", 1);
+            }
+        }
+    }
+
+    // Paste. Same idea: let the app paste; if it does not support the
+    // action, insert the system clipboard text directly.
+    private void pasteFromClipboard(InputConnection connection) {
+        boolean handled = connection.performContextMenuAction(android.R.id.paste);
+
+        if (!handled) {
+            String text = SystemClipboard.readText(this);
+
+            if (text != null && !text.isEmpty()) {
+                connection.commitText(text, 1);
+            }
         }
     }
 
@@ -302,8 +409,19 @@ public class LeanbackImeService extends KeyMapperImeService {
             switch (type) {
                 case InputListener.ENTRY_TYPE_STRING:
                     clearSuggestionsDelayed();
+
+                    // Japanese layouts: the "゛゜" key changes the previous
+                    // kana instead of typing something.
+                    if (keyCode == JapaneseKana.KEYCODE_TRANSFORM) {
+                        transformPreviousKana(connection);
+                        mEnterSpaceBeforeCommitting = false;
+                        updateSuggestions = false;
+                        break;
+                    }
+
                     if (mEnterSpaceBeforeCommitting && mKeyboardController.enableAutoEnterSpace()) {
-                        if (LeanbackUtils.isAlphabet(keyCode)) {
+                        // No space before kana: Japanese is written without spaces.
+                        if (LeanbackUtils.isAlphabet(keyCode) && !JapaneseKana.isKana(keyCode)) {
                             connection.commitText(" ", 1);
                         }
 
@@ -392,6 +510,12 @@ public class LeanbackImeService extends KeyMapperImeService {
                     // position (like a real paste).
                     clearSuggestionsDelayed();
                     connection.commitText(text, 1);
+                    // Make the picked item the current system clipboard
+                    // too, so a later paste (here or in another app)
+                    // uses it.
+                    if (text != null && LeanKeyPreferences.instance(this).isClipboardSyncEnabled()) {
+                        SystemClipboard.writeText(this, text);
+                    }
                     mEnterSpaceBeforeCommitting = true;
                     updateSuggestions = false;
                     break;
@@ -419,17 +543,18 @@ public class LeanbackImeService extends KeyMapperImeService {
                             connection.performContextMenuAction(android.R.id.selectAll);
                             break;
                         case 2: // Copy
-                            captureSelectionToClipboardHistory(connection);
-                            connection.performContextMenuAction(android.R.id.copy);
+                            copyOrCutSelection(connection, false);
                             break;
                         case 3: // Cut
-                            captureSelectionToClipboardHistory(connection);
-                            connection.performContextMenuAction(android.R.id.cut);
+                            copyOrCutSelection(connection, true);
                             mEnterSpaceBeforeCommitting = false;
                             break;
                         case 4: // Paste
-                            connection.performContextMenuAction(android.R.id.paste);
+                            pasteFromClipboard(connection);
                             mEnterSpaceBeforeCommitting = false;
+                            break;
+                        case 5: // Move (floating keyboard only)
+                            enterMoveMode();
                             break;
                         default:
                             break;
@@ -490,10 +615,45 @@ public class LeanbackImeService extends KeyMapperImeService {
 
     @Override
     public View onCreateInputView() {
-        mInputView = mKeyboardController.getView();
+        mInputView = createInputView();
         mInputView.requestFocus();
 
         return mInputView;
+    }
+
+    // The view handed to the system. InputMethodService#setInputView() adds
+    // it to its frame with its own params (MATCH_PARENT x WRAP_CONTENT) and
+    // so throws away whatever size/gravity/margin the keyboard's root view
+    // asked for. For the floating panel the root view is therefore put into
+    // a small FrameLayout of ours: the params given to the root *inside* it
+    // are respected, which is what gives the panel its gap above the screen
+    // edge. The normal full-width keyboard is returned as it is.
+    private View createInputView() {
+        View root = mKeyboardController.getView();
+
+        if (!LeanKeyPreferences.instance(this).isFloatingKeyboard()) {
+            mFloatingRoot = null;
+            return root;
+        }
+
+        if (root.getParent() instanceof ViewGroup) {
+            ((ViewGroup) root.getParent()).removeView(root);
+        }
+
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL);
+        params.bottomMargin = getResources().getDimensionPixelSize(R.dimen.floating_keyboard_bottom_margin);
+
+        FrameLayout wrapper = new FrameLayout(this);
+        wrapper.setClipChildren(false);
+        wrapper.addView(root, params);
+
+        mFloatingRoot = root;
+        applyFloatingPosition();
+
+        return wrapper;
     }
 
     @Override
@@ -560,6 +720,7 @@ public class LeanbackImeService extends KeyMapperImeService {
         mSuggestionsFactory = new LeanbackSuggestionsFactory(this, MAX_SUGGESTIONS);
         mLastFloatingState = LeanKeyPreferences.instance(this).isFloatingKeyboard();
         mLastLegacyCompatState = LegacyCompat.isEnabled(this);
+        mLastSizeLevel = LeanKeyPreferences.instance(this).getKeyboardSizeLevel();
 
         // Runs here, not only from onCreate(): the system calls this method
         // from inside super.onCreate() - i.e. BEFORE onCreate() got to read
@@ -574,26 +735,186 @@ public class LeanbackImeService extends KeyMapperImeService {
     public void onConfigureWindow(Window win, boolean isFullscreen, boolean isCandidatesOnly) {
         super.onConfigureWindow(win, isFullscreen, isCandidatesOnly);
 
-        // Setting our root view's own LayoutParams (see
-        // LeanbackKeyboardContainer) controls how it's placed *inside*
-        // the system's input frame, but the actual on-screen window
-        // surface itself (its width/gravity as WindowManager sees it) is
-        // a separate, higher-level setting - this is the documented hook
-        // for it (InputMethodService#onConfigureWindow). Without this,
-        // the window keeps spanning the full screen width no matter what
-        // our inner view's LayoutParams say.
-        boolean isFloating = LeanKeyPreferences.instance(this).isFloatingKeyboard();
-        if (isFloating) {
-            win.setLayout(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT);
-            win.setGravity(android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL);
-        } else {
-            win.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT);
-            win.setGravity(android.view.Gravity.BOTTOM);
+        // The window is the standard one - full width, at the bottom -
+        // in BOTH modes. The floating panel is positioned *inside* it (see
+        // createInputView() and applyFloatingPosition()). Making the window
+        // itself narrow (WRAP_CONTENT) and moving it with x/y used to be
+        // tried; that depends on how the system sizes wrap-content IME
+        // windows and on it honouring x/y for them, which differs between
+        // Android TV firmwares, so it is not relied on any more.
+        win.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT);
+        win.setGravity(android.view.Gravity.BOTTOM);
+    }
+
+    private Window getImeWindow() {
+        return getWindow() != null ? getWindow().getWindow() : null;
+    }
+
+    // Where the floating panel is: it sits at the bottom centre of the
+    // window, shifted by the offsets the user set with the Move button
+    // (X > 0 = right of centre, Y > 0 = raised). Done with margins of the
+    // panel inside our wrapper, which is plain, reliable layout; the IME
+    // window just grows to include the raised part.
+    private void applyFloatingPosition() {
+        View panel = mFloatingRoot;
+        if (panel == null || !(panel.getLayoutParams() instanceof FrameLayout.LayoutParams)) {
+            return;
         }
+
+        LeanKeyPreferences prefs = LeanKeyPreferences.instance(this);
+        int base = getResources().getDimensionPixelSize(R.dimen.floating_keyboard_bottom_margin);
+        int x = prefs.getFloatingOffsetX();
+        int y = prefs.getFloatingOffsetY();
+
+        // Keep the panel fully on screen, whatever was stored (a bigger
+        // panel or another screen size would otherwise leave part of it
+        // outside). Skipped until the panel has been laid out once.
+        int width = panel.getWidth();
+        int height = panel.getHeight();
+        if (width > 0 && height > 0) {
+            DisplayMetrics metrics = getResources().getDisplayMetrics();
+            int maxX = Math.max(0, (metrics.widthPixels - width) / 2);
+            int maxY = Math.max(0, metrics.heightPixels - height - base);
+            x = Math.max(-maxX, Math.min(maxX, x));
+            y = Math.max(0, Math.min(maxY, y));
+        }
+
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) panel.getLayoutParams();
+        int left = Math.max(x, 0);
+        int right = Math.max(-x, 0);
+        int bottom = base + y;
+        if (params.leftMargin != left || params.rightMargin != right || params.bottomMargin != bottom) {
+            params.leftMargin = left;
+            params.rightMargin = right;
+            params.bottomMargin = bottom;
+            panel.setLayoutParams(params);
+        }
+    }
+
+    // Floating panel: only the panel itself takes touches - the rest of
+    // the (full-width) window lets them through to the app. A shifted or
+    // raised panel also hovers over the app, so the app must not be
+    // squeezed into the strip above it: report "no inset" (the same thing
+    // full-screen mode does). At the default position the app is resized
+    // exactly as with any other keyboard.
+    @Override
+    public void onComputeInsets(Insets outInsets) {
+        super.onComputeInsets(outInsets);
+
+        View panel = mFloatingRoot;
+        if (panel == null || panel.getWidth() <= 0 || panel.getHeight() <= 0) {
+            return;
+        }
+
+        int[] location = new int[2];
+        panel.getLocationInWindow(location);
+        outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION;
+        outInsets.touchableRegion.set(location[0], location[1],
+                location[0] + panel.getWidth(), location[1] + panel.getHeight());
+
+        Window win = getImeWindow();
+        if (win != null && LeanKeyPreferences.instance(this).isFloatingMoved()) {
+            int height = win.getDecorView().getHeight();
+            outInsets.contentTopInsets = height;
+            outInsets.visibleTopInsets = height;
+        }
+    }
+
+    // "Move" button pressed: arrow keys now move the keyboard.
+    private void enterMoveMode() {
+        if (!LeanKeyPreferences.instance(this).isFloatingKeyboard()) {
+            return;
+        }
+
+        mKeyboardController.setMoveMode(true);
+        android.widget.Toast.makeText(this, R.string.move_keyboard_hint, android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    private void exitMoveMode() {
+        mKeyboardController.setMoveMode(false);
+    }
+
+    @Override
+    public void onWindowHidden() {
+        super.onWindowHidden();
+
+        // Never come back to a keyboard that is still stuck in "move" mode.
+        if (mKeyboardController != null) {
+            exitMoveMode();
+        }
+        mMoveKeysDown.clear();
+    }
+
+    // Returns true if the key was consumed by "move" mode.
+    private boolean handleMoveModeKeyDown(int keyCode, KeyEvent event) {
+        int dx = 0;
+        int raise = 0;
+
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+                dx = -1;
+                break;
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                dx = 1;
+                break;
+            case KeyEvent.KEYCODE_DPAD_UP:
+                raise = 1;
+                break;
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                raise = -1;
+                break;
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+            case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
+            case KeyEvent.KEYCODE_BACK:
+            case KeyEvent.KEYCODE_ESCAPE:
+                // OK or Back = done. Only on the first press, so holding
+                // the OK that started the mode doesn't end it at once.
+                if (event.getRepeatCount() == 0) {
+                    exitMoveMode();
+                }
+                mMoveKeysDown.put(keyCode, true);
+                return true;
+            default:
+                return false;
+        }
+
+        mMoveKeysDown.put(keyCode, true);
+        moveFloatingKeyboard(dx, raise, event.getRepeatCount());
+        return true;
+    }
+
+    // Moves the floating keyboard one step (bigger steps while a key is
+    // held) and remembers the new position. The position is kept inside
+    // the screen.
+    private void moveFloatingKeyboard(int dx, int raise, int repeatCount) {
+        View panel = mFloatingRoot;
+        if (panel == null || panel.getWidth() <= 0 || panel.getHeight() <= 0) {
+            return; // not floating, or not laid out yet
+        }
+
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int step = Math.round(metrics.density * (repeatCount >= 6 ? 48 : 16));
+        int base = getResources().getDimensionPixelSize(R.dimen.floating_keyboard_bottom_margin);
+
+        LeanKeyPreferences prefs = LeanKeyPreferences.instance(this);
+        int maxX = Math.max(0, (metrics.widthPixels - panel.getWidth()) / 2);
+        int maxY = Math.max(0, metrics.heightPixels - panel.getHeight() - base);
+        int x = Math.max(-maxX, Math.min(maxX, prefs.getFloatingOffsetX() + dx * step));
+        int y = Math.max(0, Math.min(maxY, prefs.getFloatingOffsetY() + raise * step));
+
+        prefs.setFloatingOffset(x, y);
+        applyFloatingPosition();
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        // "Move" mode of the floating keyboard takes the arrow keys (and
+        // OK/Back to finish) before anything else sees them.
+        if (isInputViewShown() && mKeyboardController.isMoveMode() && handleMoveModeKeyDown(keyCode, event)) {
+            return true;
+        }
+
         //// DOESN'T WORK!!!
         //// Hide keyboard on ESC key: https://github.com/yuliskov/SmartYouTubeTV/issues/142
         //event = mapEscToBack(event);
@@ -627,6 +948,12 @@ public class LeanbackImeService extends KeyMapperImeService {
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
+        // Swallow the key-up of every key "move" mode consumed on key-down.
+        if (mMoveKeysDown.get(keyCode)) {
+            mMoveKeysDown.delete(keyCode);
+            return true;
+        }
+
         //// DOESN'T WORK!!!
         //// Hide keyboard on ESC key: https://github.com/yuliskov/SmartYouTubeTV/issues/142
         //event = mapEscToBack(event);
@@ -698,11 +1025,25 @@ public class LeanbackImeService extends KeyMapperImeService {
         //
         // "Legacy Android mode" (Misc -> Advanced) picks a different
         // set of layouts, so it needs the same rebuild.
+        // Also pick up a position reset done in Settings meanwhile.
+        applyFloatingPosition();
+
         boolean currentFloatingState = LeanKeyPreferences.instance(this).isFloatingKeyboard();
         boolean currentLegacyCompatState = LegacyCompat.isEnabled(this);
-        if (currentFloatingState != mLastFloatingState || currentLegacyCompatState != mLastLegacyCompatState) {
+        // The keyboard size (Interface -> Size) is baked into the views when
+        // they are built, so a changed level needs the same rebuild.
+        int currentSizeLevel = LeanKeyPreferences.instance(this).getKeyboardSizeLevel();
+        if (currentFloatingState != mLastFloatingState
+                || currentLegacyCompatState != mLastLegacyCompatState
+                || currentSizeLevel != mLastSizeLevel) {
+            // A different panel size or mode: the old position no longer
+            // fits it, so start again from the default spot.
+            if (currentFloatingState != mLastFloatingState || currentSizeLevel != mLastSizeLevel) {
+                LeanKeyPreferences.instance(this).resetFloatingOffset();
+            }
+
             onInitializeInterface();
-            mInputView = mKeyboardController.getView();
+            mInputView = createInputView();
             setInputView(mInputView);
         }
 

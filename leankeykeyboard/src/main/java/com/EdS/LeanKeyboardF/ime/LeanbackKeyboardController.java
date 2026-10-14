@@ -927,6 +927,23 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
         }
     }
 
+    // "Move" mode of the floating keyboard: while it is on, the remote's
+    // arrow keys move the keyboard instead of the focus (the keys are
+    // intercepted in LeanbackImeService before they get here).
+    private boolean mMoveMode;
+
+    public boolean isMoveMode() {
+        return mMoveMode;
+    }
+
+    public void setMoveMode(boolean active) {
+        mMoveMode = active;
+
+        if (mContainer != null) {
+            mContainer.setMoveButtonActive(active);
+        }
+    }
+
     public void onStartInput(EditorInfo info) {
         if (mContainer != null) {
             mContainer.onStartInput(info);
