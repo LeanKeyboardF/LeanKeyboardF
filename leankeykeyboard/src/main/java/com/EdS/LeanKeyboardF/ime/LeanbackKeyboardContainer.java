@@ -831,7 +831,9 @@ public class LeanbackKeyboardContainer {
                 if (dir == DIRECTION_RIGHT || dir == DIRECTION_LEFT) {
                     Rect actionRect = new Rect();
                     offsetRect(actionRect, mActionButtonView);
-                    boolean onSameRow = Math.abs(oldFocus.rect.top - actionRect.top) < 20;
+                    // Compare centers (the Enter button is taller than a key, so comparing top edges is skewed)
+                    // and scale the tolerance with the key height instead of a fixed 20px.
+                    boolean onSameRow = Math.abs(oldFocus.rect.centerY() - actionRect.centerY()) < oldFocus.rect.height() / 2;
 
                     if (onSameRow && !LeanbackUtils.isSubmitButton(oldFocus)) {
                         // move focus to submit button
@@ -839,8 +841,13 @@ public class LeanbackKeyboardContainer {
                         configureFocus(newFocus, mRect, 0, KeyFocus.TYPE_ACTION);
                     } else {
                         offsetRect(mRect, mMainKeyboardView);
-                        float x = dir == DIRECTION_RIGHT ? 0 : mRect.right; // 0 - rightmost position, right - leftmost
-                        int keyIdx = mMainKeyboardView.getNearestIndex(x, oldFocus.rect.top - mRect.top);
+                        // x is relative to the keyboard view: 0 - leftmost key (wrapping right), width - rightmost key (wrapping left)
+                        float x = dir == DIRECTION_RIGHT ? 0 : mRect.width();
+                        // Use the vertical CENTER of the old key. Its top edge lies exactly on the row boundary and
+                        // getNearestIndex() also subtracts the view's top padding, so with the top edge the wrap
+                        // landed one row higher (and drifted up one more row on every wrap when the key was held).
+                        float y = oldFocus.rect.centerY() - mRect.top;
+                        int keyIdx = mMainKeyboardView.getNearestIndex(x, y);
                         Key key = mMainKeyboardView.getKey(keyIdx);
                         configureFocus(newFocus, mRect, keyIdx, key, 0);
                     }

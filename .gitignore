@@ -22,3 +22,5 @@ tmp/
 .externalNativeBuild
 fabric.properties
 *BAK.java
+*.db
+keystore/
