@@ -58,9 +58,10 @@ jobs:
           }
           EOF
 
-      - name: Build debug APK
+      # EN-only flavor -> LeanKeyboardF_EN_v<version>_d.apk
+      - name: Build debug APK (EN)
         run: >
-          ./gradlew assembleOriginEnArDebug
+          ./gradlew assembleOriginEnDebug
           --stacktrace
           --parallel
           --build-cache
@@ -69,7 +70,8 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v7
         with:
-          name: LeanKeyboardF-test-${{ github.run_number }}-${{ github.sha }}
-          path: "**/build/outputs/apk/**/*.apk"
+          name: LeanKeyboardF-EN-test-${{ github.run_number }}-${{ github.sha }}
+          # Matches only the EN build (not EN+AR)
+          path: "**/build/outputs/apk/**/LeanKeyboardF_EN_v*_d.apk"
           retention-days: 14
           if-no-files-found: error
