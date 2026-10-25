@@ -45,6 +45,19 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      # Fixes "Cannot fit requested classes in a single dex file (> 64K methods)"
+      # for test builds only, without touching build.gradle.
+      - name: Enable multidex (CI only)
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/multidex.gradle <<'EOF'
+          allprojects {
+              pluginManager.withPlugin('com.android.application') {
+                  android.defaultConfig.multiDexEnabled = true
+              }
+          }
+          EOF
+
       - name: Build debug APK
         run: >
           ./gradlew assembleOriginEnArDebug
