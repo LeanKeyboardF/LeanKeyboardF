@@ -23,4 +23,3 @@ tmp/
 fabric.properties
 *BAK.java
 *.db
-keystore/
