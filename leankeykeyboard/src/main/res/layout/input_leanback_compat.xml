@@ -15,10 +15,10 @@
 <RelativeLayout android:gravity="bottom" android:focusable="false" android:clipChildren="false" android:layout_width="fill_parent" android:layout_height="wrap_content"
   xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:leanbackime="http://schemas.android.com/apk/res-auto">
-    <LinearLayout android:id="@+id/keyboard" android:orientation="horizontal" android:clipChildren="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_centerHorizontal="true">
+    <LinearLayout android:id="@+id/keyboard_row" android:orientation="horizontal" android:clipChildren="false" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_centerHorizontal="true">
         <com.EdS.LeanKeyboardF.addons.resize.ResizeableLeanbackKeyboardView android:id="@+id/main_keyboard" android:clipChildren="false" android:layout_width="wrap_content" android:layout_height="wrap_content" leanbackime:rowCount="5" leanbackime:columnCount="11" />
     </LinearLayout>
-    <FrameLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_alignTop="@id/keyboard" android:layout_alignBottom="@id/keyboard" android:layout_centerHorizontal="true">
+    <FrameLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_alignTop="@id/keyboard_row" android:layout_alignBottom="@id/keyboard_row" android:layout_centerHorizontal="true">
         <com.EdS.LeanKeyboardF.ime.voice.RecognizerView android:id="@+id/voice" android:layout_gravity="center" android:visibility="invisible" android:layout_width="@dimen/recognizer_size" android:layout_height="@dimen/recognizer_size" />
     </FrameLayout>
     <!-- Clipboard action buttons: Clear (top, next to Backspace), Select
@@ -33,7 +33,7 @@
          with each row going down. -->
     <LinearLayout android:id="@+id/action_buttons" android:orientation="vertical" android:clipChildren="false" android:layout_width="wrap_content" android:layout_height="wrap_content"
                   android:paddingTop="@dimen/action_buttons_top_offset"
-                  android:layout_toRightOf="@id/keyboard" android:layout_alignTop="@id/keyboard" android:layout_alignBottom="@id/keyboard">
+                  android:layout_toRightOf="@id/keyboard_row" android:layout_alignTop="@id/keyboard_row" android:layout_alignBottom="@id/keyboard_row">
         <ImageButton android:id="@+id/action_clear" android:layout_width="@dimen/action_button_width" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="@dimen/keyboard_vertical_gap"
                      android:background="@drawable/bg_action_button_compat" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
                      android:src="@drawable/ic_action_clear_compat" android:contentDescription="@string/action_clear" />
@@ -50,7 +50,7 @@
                      android:background="@drawable/bg_action_button_compat" android:scaleType="centerInside" android:padding="@dimen/action_button_padding"
                      android:src="@drawable/ic_action_paste_compat" android:contentDescription="@string/action_paste" />
     </LinearLayout>
-    <FrameLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_toRightOf="@id/action_buttons" android:layout_alignTop="@id/keyboard" android:layout_alignBottom="@id/keyboard" android:layout_alignParentRight="true">
+    <FrameLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_toRightOf="@id/action_buttons" android:layout_alignTop="@id/keyboard_row" android:layout_alignBottom="@id/keyboard_row" android:layout_alignParentRight="true">
         <Button android:id="@+id/enter" android:textSize="@dimen/enter_key_font_size" android:textColor="@color/enter_key_font_color" android:layout_gravity="center" android:background="@null" android:paddingLeft="@dimen/enter_key_padding_horizontal" android:paddingRight="@dimen/enter_key_padding_horizontal" android:layout_width="wrap_content" android:layout_height="@dimen/enter_key_height" android:text="@string/label_next_key" android:fontFamily="sans-serif-regular" />
     </FrameLayout>
 </RelativeLayout>

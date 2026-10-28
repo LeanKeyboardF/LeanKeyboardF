@@ -10,6 +10,14 @@ if (keystoreAvailable) {
 android {
     namespace 'com.EdS.LeanKeyboardF'
 
+    // The app can change its locale at runtime. Keep all translations in the
+    // base bundle so switching the app language never requests an absent split.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }

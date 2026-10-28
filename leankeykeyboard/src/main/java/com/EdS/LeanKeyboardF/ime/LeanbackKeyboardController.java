@@ -13,6 +13,7 @@ import android.view.View.OnHoverListener;
 import android.view.View.OnLayoutChangeListener;
 import android.view.View.OnTouchListener;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.RelativeLayout;
 import androidx.annotation.NonNull;
@@ -963,7 +964,7 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
     }
 
     private void onHideIme() {
-        mContext.requestHideSelf(InputMethodService.BACK_DISPOSITION_DEFAULT);
+        mContext.requestHideSelf(InputMethodManager.HIDE_NOT_ALWAYS);
     }
 
     public void onStartInputView() {

@@ -1489,7 +1489,7 @@ public class LeanbackKeyboardContainer {
             mSuggestions.removeViews(newCount, oldCount - newCount);
         } else if (newCount > oldCount) {
             while (oldCount < newCount) {
-                View suggestion = mContext.getLayoutInflater().inflate(R.layout.candidate, null);
+                View suggestion = mContext.getLayoutInflater().inflate(R.layout.candidate, mSuggestions, false);
                 mSuggestions.addView(suggestion);
                 ++oldCount;
             }

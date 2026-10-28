@@ -26,6 +26,7 @@ import com.EdS.LeanKeyboardF.R;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 public class LeanbackKeyboardView extends FrameLayout {
     /**
@@ -108,10 +109,10 @@ public class LeanbackKeyboardView extends FrameLayout {
 
             switch (charCase) {
                 case LOWER_CASE:
-                    result = labels != null ? labels[0] : label.toString().toLowerCase();
+                    result = labels != null ? labels[0] : label.toString().toLowerCase(Locale.ROOT);
                     break;
                 case UPPER_CASE:
-                    result = labels != null ? labels[1] : label.toString().toUpperCase();
+                    result = labels != null ? labels[1] : label.toString().toUpperCase(Locale.ROOT);
                     break;
             }
 

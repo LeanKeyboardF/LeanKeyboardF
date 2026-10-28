@@ -46,6 +46,7 @@ import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.util.TypedValue;
 import androidx.annotation.NonNull;
+import androidx.annotation.StyleableRes;
 
 /**
  * A Drawable object that draws text.
@@ -86,9 +87,11 @@ public class TextDrawable extends Drawable {
     private final Drawable mDrawable;
 
     /* Attribute lists to pull default values from the current theme */
+    @StyleableRes
     private static final int[] themeAttributes = {
             android.R.attr.textAppearance
     };
+    @StyleableRes
     private static final int[] appearanceAttributes = {
             android.R.attr.textSize,
             android.R.attr.typeface,
@@ -136,16 +139,16 @@ public class TextDrawable extends Drawable {
                 int attr = ap.getIndex(i);
                 switch (attr) {
                     case 0: //Text Size
-                        textSize = a.getDimensionPixelSize(attr, textSize);
+                        textSize = ap.getDimensionPixelSize(attr, textSize);
                         break;
                     case 1: //Typeface
-                        typefaceIndex = a.getInt(attr, typefaceIndex);
+                        typefaceIndex = ap.getInt(attr, typefaceIndex);
                         break;
                     case 2: //Text Style
-                        styleIndex = a.getInt(attr, styleIndex);
+                        styleIndex = ap.getInt(attr, styleIndex);
                         break;
                     case 3: //Text Color
-                        textColor = a.getColorStateList(attr);
+                        textColor = ap.getColorStateList(attr);
                         break;
                     default:
                         break;

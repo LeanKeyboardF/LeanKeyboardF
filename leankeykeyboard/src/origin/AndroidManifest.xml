@@ -6,11 +6,11 @@
      distributed apps must not self-update from outside Play. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    tools:ignore="MissingLeanbackLauncher">
+    tools:ignore="MissingLeanbackLauncher,MissingLeanbackSupport,ImpliedTouchscreenHardware">
 
-    <!-- This flavor overlay intentionally adds only update support. The
-         LEANBACK_LAUNCHER activity is declared in src/main/AndroidManifest.xml;
-         suppress the detector's per-file false positive for this overlay. -->
+    <!-- This flavor overlay intentionally adds only update support. The main
+         manifest declares the TV launcher and optional hardware features;
+         these suppressions cover lint's per-file checks on this overlay. -->
 
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
