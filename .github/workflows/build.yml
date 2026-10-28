@@ -122,6 +122,30 @@ jobs:
             echo "path=" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Collect release assets
+        id: release-assets
+        env:
+          RELEASE_VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          release_dir="releases/$RELEASE_VERSION"
+          if [[ ! -d "$release_dir" ]]; then
+            echo "Release output directory is missing: $release_dir" >&2
+            exit 1
+          fi
+
+          mapfile -t assets < <(find "$release_dir" -maxdepth 1 -type f \( -name '*.apk' -o -name '*.aab' \) -print | sort)
+          if (( ${#assets[@]} == 0 )); then
+            echo "No APK or AAB files were produced in $release_dir." >&2
+            exit 1
+          fi
+
+          {
+            echo "files<<RELEASE_ASSETS"
+            printf '%s\n' "${assets[@]}"
+            echo "RELEASE_ASSETS"
+          } >> "$GITHUB_OUTPUT"
+
       # Release assets do not count against the Actions artifact storage quota.
       - name: Publish GitHub Release (draft)
         if: steps.release-notes.outputs.path != ''
@@ -132,9 +156,7 @@ jobs:
           draft: true
           fail_on_unmatched_files: true
           body_path: ${{ steps.release-notes.outputs.path }}
-          files: |
-            releases/${{ steps.validate.outputs.version }}/*.apk
-            releases/${{ steps.validate.outputs.version }}/*.aab
+          files: ${{ steps.release-assets.outputs.files }}
 
       - name: Publish GitHub Release with generated notes (draft)
         if: steps.release-notes.outputs.path == ''
@@ -145,9 +167,7 @@ jobs:
           draft: true
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: |
-            releases/${{ steps.validate.outputs.version }}/*.apk
-            releases/${{ steps.validate.outputs.version }}/*.aab
+          files: ${{ steps.release-assets.outputs.files }}
 
       # Optional copy as a workflow artifact. Quota exhaustion must not fail
       # the release build; the GitHub Release remains the primary asset store.
@@ -156,8 +176,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: LeanKeyboardF-v${{ steps.validate.outputs.version }}
-          path: |
-            releases/${{ steps.validate.outputs.version }}/*.apk
-            releases/${{ steps.validate.outputs.version }}/*.aab
+          path: ${{ steps.release-assets.outputs.files }}
           retention-days: 1
           if-no-files-found: error
