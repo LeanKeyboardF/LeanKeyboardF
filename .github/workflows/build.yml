@@ -60,26 +60,35 @@ jobs:
       - name: Make scripts executable
         run: chmod +x gradlew build.sh
 
-      # Configure these repository Actions secrets before running a release.
-      # This keeps signing material out of the checkout and Git history.
-      - name: Configure release signing
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # Use the same tracked keystore files as local release builds.
+      - name: Verify release keystore
         run: |
           set -euo pipefail
-          if [[ -z "$ANDROID_KEYSTORE_BASE64" || -z "$ANDROID_STORE_PASSWORD" || -z "$ANDROID_KEY_ALIAS" || -z "$ANDROID_KEY_PASSWORD" ]]; then
-            echo "Configure ANDROID_KEYSTORE_BASE64, ANDROID_STORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD in repository Actions secrets." >&2
+          properties_file="keystore/keystore.properties"
+          if [[ ! -s "$properties_file" ]]; then
+            echo "Missing keystore/keystore.properties in the checkout." >&2
             exit 1
           fi
 
-          mkdir -p keystore
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > keystore/release.keystore.jks
-          printf 'storeFile=release.keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-            "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_ALIAS" "$ANDROID_KEY_PASSWORD" \
-            > keystore/keystore.properties
+          store_file="$(sed -n 's/^storeFile=//p' "$properties_file" | head -n1 | tr -d '\r')"
+          case "$store_file" in
+            ""|*/*|..)
+              echo "Invalid storeFile entry in keystore/keystore.properties." >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ ! -s "keystore/$store_file" ]]; then
+            echo "Release keystore file is missing from the keystore directory." >&2
+            exit 1
+          fi
+
+          for property in storePassword keyAlias keyPassword; do
+            if ! awk -F= -v key="$property" '$1 == key { sub(/\r$/, "", $2); if (length($2) > 0) found = 1 } END { exit !found }' "$properties_file"; then
+              echo "Missing or empty $property entry in keystore/keystore.properties." >&2
+              exit 1
+            fi
+          done
 
       - name: Build (${{ steps.validate.outputs.version }})
         env:
@@ -152,7 +161,3 @@ jobs:
             releases/${{ steps.validate.outputs.version }}/*.aab
           retention-days: 1
           if-no-files-found: error
-
-      - name: Remove temporary signing files
-        if: always()
-        run: rm -f keystore/keystore.properties keystore/release.keystore.jks

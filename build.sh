@@ -27,9 +27,9 @@
 #          benefit, unlike splitting by language.
 #   4. Copies every resulting APK/AAB into releases/<version>/.
 #
-# keystore/ is git-ignored on purpose - BACK IT UP YOURSELF.
-# If you lose it you can never sign an update with the same
-# signature again (Play Store, sideload upgrades, etc).
+# keystore/ is tracked so local builds and GitHub Actions reuse the same key.
+# Keep a separate backup: losing it prevents signing compatible updates.
+# Anyone with repository read access can access the signing key and passwords.
 #
 # NOTE: with two flavor dimensions (distribution x locale), AGP's
 # per-flavor convenience aggregate tasks (e.g. "assembleOriginRelease")

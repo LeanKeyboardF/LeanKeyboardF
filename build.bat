@@ -20,9 +20,9 @@ rem      slimmer APK per CPU architecture (armeabi-v7a, arm64-v8a,
 rem      x86, x86_64) - 5 APKs per flavor, 10 total by default.
 rem   4. Copies every resulting APK into releases\<version>\.
 rem
-rem  keystore\ is git-ignored on purpose - BACK IT UP YOURSELF.
-rem  If you lose it you can never publish an update under the
-rem  same signature again (Play Store, sideload upgrades, etc).
+rem  keystore\ is tracked so local builds and GitHub Actions reuse the same key.
+rem  Keep a separate backup: losing it prevents signing compatible updates.
+rem  Anyone with repository read access can access the signing key and passwords.
 rem =============================================================
 
 set VERSION_NAME=%1
