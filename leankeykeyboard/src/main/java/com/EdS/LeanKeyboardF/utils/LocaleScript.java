@@ -710,6 +710,10 @@ class LocaleScript {
      * @return
      */
     public static String getScript(Locale locale) {
+        if (locale == null) {
+            return "";
+        }
+
         String localeString = locale.toString();
         String language = "";
         String country = "";
@@ -720,8 +724,15 @@ class LocaleScript {
         } else language = localeString;
 
         Map<String, String> scripts = scriptsByLocale.get(language);
+        if (scripts == null) {
+            return "";
+        }
+
         String script = scripts.get(country);
-        return script == null ? scripts.get("") : script;
+        if (script == null) {
+            script = scripts.get("");
+        }
+        return script == null ? "" : script;
 
     }
 }

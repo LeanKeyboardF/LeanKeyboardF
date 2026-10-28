@@ -34,10 +34,10 @@ class SystemVoiceDialog implements VoiceDialog, ActivityListener {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         // got speech-to-text result, switch to the search page
-        if (requestCode == SPEECH_REQUEST_CODE && resultCode == -1) {
+        if (requestCode == SPEECH_REQUEST_CODE && resultCode == -1 && data != null) {
             List<String> results = data.getStringArrayListExtra(
                     RecognizerIntent.EXTRA_RESULTS);
-            if (results != null && results.size() > 0) {
+            if (results != null && !results.isEmpty() && results.get(0) != null) {
                 mCallback.openSearchPage(results.get(0));
             }
         }

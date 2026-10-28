@@ -25,6 +25,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,7 +51,7 @@ public class Helpers {
     }
 
     public static boolean matchSubstrNoCase(String host, String mask) {
-        return matchSubstr(host.toLowerCase(), mask.toLowerCase());
+        return matchSubstr(host.toLowerCase(Locale.ROOT), mask.toLowerCase(Locale.ROOT));
     }
 
     public static InputStream getAsset(Context ctx, String fileName) {

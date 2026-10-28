@@ -20,6 +20,8 @@ import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
 import com.EdS.LeanKeyboardF.utils.LegacyCompat;
 import com.EdS.LeanKeyboardF.R;
 
+import java.util.Locale;
+
 public class ThemeManager {
     private static final String TAG = ThemeManager.class.getSimpleName();
     private final Context mContext;
@@ -52,10 +54,11 @@ public class ThemeManager {
             applyShiftDrawable(-1);
         } else {
             Resources resources = mContext.getResources();
-            int keyboardBackgroundResId = resources.getIdentifier("keyboard_background_" + themeId.toLowerCase(), "color", mContext.getPackageName());
-            int candidateBackgroundResId = resources.getIdentifier("candidate_background_" + themeId.toLowerCase(), "color", mContext.getPackageName());
-            int enterFontColorResId = resources.getIdentifier("enter_key_font_color_" + themeId.toLowerCase(), "color", mContext.getPackageName());
-            int keyTextColorResId = resources.getIdentifier("key_text_default_" + themeId.toLowerCase(), "color", mContext.getPackageName());
+            String resourceThemeId = themeId.toLowerCase(Locale.ROOT);
+            int keyboardBackgroundResId = resources.getIdentifier("keyboard_background_" + resourceThemeId, "color", mContext.getPackageName());
+            int candidateBackgroundResId = resources.getIdentifier("candidate_background_" + resourceThemeId, "color", mContext.getPackageName());
+            int enterFontColorResId = resources.getIdentifier("enter_key_font_color_" + resourceThemeId, "color", mContext.getPackageName());
+            int keyTextColorResId = resources.getIdentifier("key_text_default_" + resourceThemeId, "color", mContext.getPackageName());
 
             applyKeyboardColors(
                     keyboardBackgroundResId,
@@ -64,7 +67,7 @@ public class ThemeManager {
                     keyTextColorResId
             );
 
-            int shiftLockOnResId = resources.getIdentifier("ic_ime_shift_lock_on_" + themeId.toLowerCase(), "drawable", mContext.getPackageName());
+            int shiftLockOnResId = resources.getIdentifier("ic_ime_shift_lock_on_" + resourceThemeId, "drawable", mContext.getPackageName());
 
             applyShiftDrawable(shiftLockOnResId);
         }
@@ -84,7 +87,7 @@ public class ThemeManager {
             applySuggestionsColors(R.color.candidate_font_color);
         } else {
             Resources resources = mContext.getResources();
-            int candidateFontColorResId = resources.getIdentifier("candidate_font_color_" + themeId.toLowerCase(), "color", mContext.getPackageName());
+            int candidateFontColorResId = resources.getIdentifier("candidate_font_color_" + themeId.toLowerCase(Locale.ROOT), "color", mContext.getPackageName());
             applySuggestionsColors(candidateFontColorResId);
         }
     }
@@ -104,7 +107,17 @@ public class ThemeManager {
             return LeanKeyPreferences.THEME_DEFAULT;
         }
 
-        return rawTheme;
+        if (LeanKeyPreferences.THEME_DEFAULT.equals(rawTheme)
+                || LeanKeyPreferences.THEME_DARK.equals(rawTheme)
+                || LeanKeyPreferences.THEME_DARK2.equals(rawTheme)
+                || LeanKeyPreferences.THEME_DARK3.equals(rawTheme)
+                || LeanKeyPreferences.THEME_LIGHT.equals(rawTheme)) {
+            return rawTheme;
+        }
+
+        // Invalid/old preference values must not resolve resource id 0 and
+        // crash keyboard inflation. Keep the UI usable with its default theme.
+        return LeanKeyPreferences.THEME_DEFAULT;
     }
 
     private boolean isSystemInDarkMode() {
@@ -179,7 +192,8 @@ public class ThemeManager {
         }
 
         int[] actionButtonIds = {
-                R.id.action_clear, R.id.action_select_all, R.id.action_copy, R.id.action_cut, R.id.action_paste
+                R.id.action_clear, R.id.action_select_all, R.id.action_copy,
+                R.id.action_cut, R.id.action_paste, R.id.action_move
         };
 
         for (int id : actionButtonIds) {

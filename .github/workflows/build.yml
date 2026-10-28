@@ -1,106 +1,158 @@
 name: Build APKs
 
-# Run manually from the "Actions" tab: pick a version, optionally pick
-# which flavors to build.
-#
-# Signing key lives directly in this repo, in keystore/:
-#  - First run: keystore/release.keystore.jks doesn't exist yet, so
-#    build.sh generates it. At the end of the job this workflow commits
-#    keystore/ straight back to the repo.
-#  - Every run after that: keystore/ is already checked out from git,
-#    build.sh sees the file exists and reuses it - same signing key
-#    every time. versionCode auto-increments and gets committed back too.
-#
-# !! SECURITY WARNING !!
-# keystore/keystore.properties contains the plaintext store/key
-# passwords. Committing it means anyone with read access to this repo
-# (and its full git history - deleting it later does NOT remove it from
-# past commits) can extract your private signing key and sign their own
-# updates as if they were you. Only do this on a PRIVATE repository you
-# fully trust. For a public repo, use encrypted repo secrets + a keystore
-# cached outside git instead.
-
+# Run manually from Actions. Release builds are serialized because build.sh
+# updates the shared versionCode file and pushes it back to the repository.
 on:
   workflow_dispatch:
     inputs:
       version:
         description: "App version (versionName), e.g. 6.2.0"
         required: true
+        type: string
       flavors:
         description: "Comma-separated flavors to build"
         required: false
         default: "playstore,origin"
+        type: string
 
 permissions:
-  contents: write  # needed to read keystore/keystore.properties AND to push the
-                   # keystore/versionCode commit back to the repo at the end of the job
+  contents: write
+
+concurrency:
+  group: release-${{ github.repository }}
+  queue: max
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 180
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
 
-      - name: Cache Gradle
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('**/*.gradle*', 'gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-
+      - name: Validate release inputs
+        id: validate
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_FLAVORS: ${{ inputs.flavors || 'playstore,origin' }}
+        run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version must be semantic version text such as 1.2.3 or 1.2.3-rc.1." >&2
+            exit 1
+          fi
+
+          case "$RELEASE_FLAVORS" in
+            playstore|origin|playstore,origin|origin,playstore) ;;
+            *) echo "Flavors must be playstore, origin, or both separated by a comma." >&2; exit 1 ;;
+          esac
+
+          echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "flavors=$RELEASE_FLAVORS" >> "$GITHUB_OUTPUT"
 
       - name: Make scripts executable
         run: chmod +x gradlew build.sh
 
-      - name: Build (${{ github.event.inputs.version }})
-        run: ./build.sh "${{ github.event.inputs.version }}" "${{ github.event.inputs.flavors }}"
+      # Configure these repository Actions secrets before running a release.
+      # This keeps signing material out of the checkout and Git history.
+      - name: Configure release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$ANDROID_KEYSTORE_BASE64" || -z "$ANDROID_STORE_PASSWORD" || -z "$ANDROID_KEY_ALIAS" || -z "$ANDROID_KEY_PASSWORD" ]]; then
+            echo "Configure ANDROID_KEYSTORE_BASE64, ANDROID_STORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD in repository Actions secrets." >&2
+            exit 1
+          fi
 
-      # Persists a newly-generated keystore (first run) and the
-      # auto-incremented versionCode (every run) back into the repo.
-      - name: Commit keystore / versionCode changes
+          mkdir -p keystore
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > keystore/release.keystore.jks
+          printf 'storeFile=release.keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$ANDROID_STORE_PASSWORD" "$ANDROID_KEY_ALIAS" "$ANDROID_KEY_PASSWORD" \
+            > keystore/keystore.properties
+
+      - name: Build (${{ steps.validate.outputs.version }})
+        env:
+          RELEASE_VERSION: ${{ steps.validate.outputs.version }}
+          RELEASE_FLAVORS: ${{ steps.validate.outputs.flavors }}
+        run: ./build.sh "$RELEASE_VERSION" "$RELEASE_FLAVORS"
+
+      # Persist only the non-secret versionCode. Never add signing material
+      # from this workflow to a new commit.
+      - name: Commit versionCode change
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f keystore/
+          git add -f keystore/versioncode.txt
           if git diff --cached --quiet; then
             echo "Nothing to commit."
           else
-            git commit -m "chore: update release keystore/versionCode [skip ci]"
+            git commit -m "chore: update release versionCode [skip ci]"
             git push
           fi
 
-      # Release assets do NOT count against the Actions artifact storage quota,
-      # so the APKs/AAB are published to a GitHub Release (draft: review it,
-      # then press "Publish release").
+      - name: Select release description
+        id: release-notes
+        env:
+          RELEASE_VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          notes_file=".github/release-notes/v${RELEASE_VERSION}.md"
+          if [[ -f "$notes_file" ]]; then
+            echo "path=$notes_file" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Release assets do not count against the Actions artifact storage quota.
       - name: Publish GitHub Release (draft)
-        uses: softprops/action-gh-release@v2
+        if: steps.release-notes.outputs.path != ''
+        uses: softprops/action-gh-release@v3
         with:
-          tag_name: v${{ github.event.inputs.version }}
-          name: LeanKeyboardF v${{ github.event.inputs.version }}
+          tag_name: v${{ steps.validate.outputs.version }}
+          name: LeanKeyboardF v${{ steps.validate.outputs.version }}
           draft: true
           fail_on_unmatched_files: true
+          body_path: ${{ steps.release-notes.outputs.path }}
           files: |
-            releases/${{ github.event.inputs.version }}/*.apk
-            releases/${{ github.event.inputs.version }}/*.aab
+            releases/${{ steps.validate.outputs.version }}/*.apk
+            releases/${{ steps.validate.outputs.version }}/*.aab
 
-      # Optional copy as a workflow artifact. A full quota must not fail the
-      # run, so errors are ignored; kept for 1 day only to save space.
+      - name: Publish GitHub Release with generated notes (draft)
+        if: steps.release-notes.outputs.path == ''
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ steps.validate.outputs.version }}
+          name: LeanKeyboardF v${{ steps.validate.outputs.version }}
+          draft: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            releases/${{ steps.validate.outputs.version }}/*.apk
+            releases/${{ steps.validate.outputs.version }}/*.aab
+
+      # Optional copy as a workflow artifact. Quota exhaustion must not fail
+      # the release build; the GitHub Release remains the primary asset store.
       - name: Upload APKs / AAB (artifact)
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
-          name: LeanKeyboardF-v${{ github.event.inputs.version }}
+          name: LeanKeyboardF-v${{ steps.validate.outputs.version }}
           path: |
-            releases/${{ github.event.inputs.version }}/*.apk
-            releases/${{ github.event.inputs.version }}/*.aab
+            releases/${{ steps.validate.outputs.version }}/*.apk
+            releases/${{ steps.validate.outputs.version }}/*.aab
           retention-days: 1
           if-no-files-found: error
+
+      - name: Remove temporary signing files
+        if: always()
+        run: rm -f keystore/keystore.properties keystore/release.keystore.jks

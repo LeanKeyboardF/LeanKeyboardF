@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -77,7 +78,7 @@ public class LearningDictionary {
             return;
         }
 
-        word = word.trim().toLowerCase();
+        word = word.trim().toLowerCase(Locale.ROOT);
         if (word.length() < MIN_WORD_LENGTH || word.length() > MAX_WORD_LENGTH) {
             return;
         }
@@ -109,14 +110,20 @@ public class LearningDictionary {
         return false;
     }
 
+    private boolean isValidWord(String word) {
+        return word.length() >= MIN_WORD_LENGTH
+                && word.length() <= MAX_WORD_LENGTH
+                && containsLetter(word);
+    }
+
     public synchronized void learnBigram(String prevWord, String nextWord) {
         if (prevWord == null || nextWord == null) {
             return;
         }
 
-        prevWord = prevWord.trim().toLowerCase();
-        nextWord = nextWord.trim().toLowerCase();
-        if (prevWord.isEmpty() || nextWord.isEmpty()) {
+        prevWord = prevWord.trim().toLowerCase(Locale.ROOT);
+        nextWord = nextWord.trim().toLowerCase(Locale.ROOT);
+        if (!isValidWord(prevWord) || !isValidWord(nextWord)) {
             return;
         }
 
@@ -153,7 +160,7 @@ public class LearningDictionary {
             return result;
         }
 
-        String lowerPrefix = prefix.toLowerCase();
+        String lowerPrefix = prefix.toLowerCase(Locale.ROOT);
 
         try {
             JSONObject words = new JSONObject(mPrefs.getString(KEY_WORDS, "{}"));
@@ -161,7 +168,7 @@ public class LearningDictionary {
             Iterator<String> keys = words.keys();
             while (keys.hasNext()) {
                 String word = keys.next();
-                if (!word.equalsIgnoreCase(prefix) && word.toLowerCase().startsWith(lowerPrefix)) {
+                if (!word.equalsIgnoreCase(prefix) && word.toLowerCase(Locale.ROOT).startsWith(lowerPrefix)) {
                     matches.add(new AbstractMap.SimpleEntry<>(word, words.optInt(word, 0)));
                 }
             }
@@ -186,7 +193,7 @@ public class LearningDictionary {
             return result;
         }
 
-        prevWord = prevWord.trim().toLowerCase();
+        prevWord = prevWord.trim().toLowerCase(Locale.ROOT);
 
         try {
             JSONObject bigrams = new JSONObject(mPrefs.getString(KEY_BIGRAMS, "{}"));

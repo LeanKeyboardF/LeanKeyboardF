@@ -61,9 +61,12 @@ public final class JapaneseKana {
         return NEXT.get(c);
     }
 
-    /** True for hiragana and katakana (including the long-vowel mark). */
+    /** True for hiragana and katakana characters (including the long-vowel mark). */
     public static boolean isKana(int codePoint) {
-        return codePoint >= 0x3041 && codePoint <= 0x30FF;
+        return (codePoint >= 0x3041 && codePoint <= 0x3096)
+                || (codePoint >= 0x309D && codePoint <= 0x309F)
+                || (codePoint >= 0x30A1 && codePoint <= 0x30FA)
+                || (codePoint >= 0x30FC && codePoint <= 0x30FF);
     }
 
     private static char toKatakana(char hiragana) {

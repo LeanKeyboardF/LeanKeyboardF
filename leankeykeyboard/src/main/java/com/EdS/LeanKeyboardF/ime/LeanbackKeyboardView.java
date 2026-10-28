@@ -361,10 +361,19 @@ public class LeanbackKeyboardView extends FrameLayout {
     public int getNearestIndex(final float x, final float y) {
         int result;
         if (mKeys != null && mKeys.length != 0) {
+            // Focus can be restored while a view is being re-laid out (for
+            // example after switching the keyboard layer). Avoid dividing by
+            // zero before Android has supplied its measured size.
+            if (mColCount <= 0 || mRowCount <= 0) {
+                return 0;
+            }
             float paddingLeft = (float) getPaddingLeft();
             float paddingTop = (float) getPaddingTop();
             float kbHeight = (float) (getMeasuredHeight() - getPaddingTop() - getPaddingBottom());
             float kbWidth = (float) (getMeasuredWidth() - getPaddingLeft() - getPaddingRight());
+            if (kbHeight <= 0f || kbWidth <= 0f) {
+                return 0;
+            }
             final int rows = getRowCount();
             final int cols = getColCount();
             final int indexVert = (int) ((y - paddingTop) / kbHeight * (float) rows);
@@ -405,10 +414,7 @@ public class LeanbackKeyboardView extends FrameLayout {
                 return 0;
             }
 
-            result = indexFull;
-            if (indexFull >= mKeys.length) {
-                return mKeys.length - 1;
-            }
+            result = Math.max(0, Math.min(indexFull, mKeys.length - 1));
         } else {
             result = 0;
         }

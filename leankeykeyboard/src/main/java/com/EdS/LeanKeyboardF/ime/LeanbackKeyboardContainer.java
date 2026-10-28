@@ -144,7 +144,6 @@ public class LeanbackKeyboardContainer {
     private boolean mVoiceEnabled;
     private boolean mVoiceKeyDismissesEnabled;
     private VoiceListener mVoiceListener;
-    private boolean mVoiceOn;
     private Float mX;
     private Float mY;
     private String mLabel;
@@ -188,7 +187,6 @@ public class LeanbackKeyboardContainer {
             mVoiceButtonView.showNotListening();
             mSpeechRecognizer.cancel();
             mSpeechRecognizer.setRecognitionListener(null);
-            mVoiceOn = false;
         }
     };
 
@@ -315,7 +313,7 @@ public class LeanbackKeyboardContainer {
     private void configureFocus(KeyFocus focus, Rect rect, int index, Key key, int type) {
         focus.type = type;
         if (key != null) {
-            if (key.codes != null) {
+            if (key.codes != null && key.codes.length > 0) {
                 focus.code = key.codes[0];
             } else {
                 focus.code = 0;
@@ -349,8 +347,14 @@ public class LeanbackKeyboardContainer {
         float posXCm = (float) (mRootView.getWidth() - mRootView.getPaddingRight() - mRootView.getPaddingLeft());
         float posYCm = (float) (mRootView.getHeight() - mRootView.getPaddingTop() - mRootView.getPaddingBottom());
         float size = mContext.getResources().getDimension(R.dimen.selector_size);
-        position.x = (x - width - (float) mRootView.getPaddingLeft()) * PHYSICAL_WIDTH_CM / (posXCm - size);
-        position.y = (y - height - (float) mRootView.getPaddingTop()) * PHYSICAL_HEIGHT_CM / (posYCm - size);
+        float availableWidth = posXCm - size;
+        float availableHeight = posYCm - size;
+        position.x = availableWidth > 0f
+                ? (x - width - (float) mRootView.getPaddingLeft()) * PHYSICAL_WIDTH_CM / availableWidth
+                : 0f;
+        position.y = availableHeight > 0f
+                ? (y - height - (float) mRootView.getPaddingTop()) * PHYSICAL_HEIGHT_CM / availableHeight
+                : 0f;
     }
 
     private PointF getTouchSnapPosition() {
@@ -717,6 +721,18 @@ public class LeanbackKeyboardContainer {
             newY = mY;
         }
 
+        // Focus may be restored before a pointer position has been recorded.
+        // Use the keyboard center in that case instead of unboxing null.
+        if (newX == null || newY == null) {
+            offsetRect(mRect, mMainKeyboardView);
+            if (newX == null) {
+                newX = (float) mRect.centerX();
+            }
+            if (newY == null) {
+                newY = (float) mRect.centerY();
+            }
+        }
+
         int count = mSuggestions.getChildCount();
         if (newY < (float) keyboardTop && count > 0 && mSuggestionsEnabled) {
             for (actionLeft = 0; actionLeft < count; ++actionLeft) {
@@ -780,7 +796,7 @@ public class LeanbackKeyboardContainer {
     public int getCurrKeyCode() {
         int keyCode = 0;
         Key key = getKey(mCurrKeyInfo.type, mCurrKeyInfo.index);
-        if (key != null) {
+        if (key != null && key.codes != null && key.codes.length > 0) {
             keyCode = key.codes[0];
         }
 
@@ -806,7 +822,9 @@ public class LeanbackKeyboardContainer {
             if (active) {
                 ((ImageView) mMoveButton).setColorFilter(0xFFFFC107);
             } else {
-                ((ImageView) mMoveButton).clearColorFilter();
+                // Restore the selected theme tint after leaving move mode;
+                // clearing the highlight alone also removes the pre-21 tint.
+                mThemeManager.updateKeyboardTheme();
             }
         }
     }
@@ -913,7 +931,7 @@ public class LeanbackKeyboardContainer {
                 float centerDelta = (float) startFocus.rect.height() / 2.0F;
                 float centerX = (float) startFocus.rect.centerX();
                 float centerY = (float) startFocus.rect.centerY();
-                if (startFocus.code == LeanbackKeyboardView.ASCII_SPACE) {
+                if (startFocus.code == LeanbackKeyboardView.ASCII_SPACE && mX != null) {
                     centerX = mX;
                 }
 
@@ -976,8 +994,17 @@ public class LeanbackKeyboardContainer {
                         return true;
                     }
 
-                    offsetRect(mRect, mSuggestions);
-                    return getBestFocus((float) startFocus.rect.centerX(), (float) mRect.centerY(), nextFocus);
+                    if (mSuggestions.getChildCount() > 0 && mSuggestionsEnabled) {
+                        offsetRect(mRect, mSuggestions);
+                        return getBestFocus((float) startFocus.rect.centerX(), (float) mRect.centerY(), nextFocus);
+                    }
+
+                    // With no suggestion row, getBestFocus() at the suggestion
+                    // coordinates resolves back to this same action column.
+                    // Move to the top right key instead of leaving D-pad focus
+                    // stuck on the first clipboard action.
+                    offsetRect(mRect, mMainKeyboardView);
+                    return getBestFocus((float) (mRect.right - 1), (float) (mRect.top + 1), nextFocus);
                 }
 
                 if ((direction & DIRECTION_DOWN) != 0) {
@@ -987,6 +1014,13 @@ public class LeanbackKeyboardContainer {
                         configureFocus(nextFocus, mRect, newIdx, KeyFocus.TYPE_CLIPBOARD);
                         return true;
                     }
+
+                    // The floating layout adds Move as a sixth button, below
+                    // Paste. Keep vertical navigation connected to the main
+                    // keyboard even when the action column is longer/shorter
+                    // than its current layout.
+                    offsetRect(mRect, mMainKeyboardView);
+                    return getBestFocus((float) (mRect.right - 1), (float) (mRect.bottom - 1), nextFocus);
                 }
                 break;
             case KeyFocus.TYPE_SUGGESTION:
@@ -1177,7 +1211,6 @@ public class LeanbackKeyboardContainer {
 
     public void onStartInput(EditorInfo info) {
         setImeOptions(mContext.getResources(), info);
-        mVoiceOn = false;
         mLabel = LeanbackUtils.getEditorLabel(info);
     }
 
@@ -1787,9 +1820,6 @@ public class LeanbackKeyboardContainer {
     }
 
     private class MyVoiceRecognitionListener implements RecognitionListener {
-        float peakRmsLevel = 0.0F;
-        int rmsCounter = 0;
-
         @Override
         public void onBeginningOfSpeech() {
             mVoiceButtonView.showRecording();
@@ -1803,7 +1833,6 @@ public class LeanbackKeyboardContainer {
         @Override
         public void onEndOfSpeech() {
             mVoiceButtonView.showRecognizing();
-            mVoiceOn = false;
         }
 
         @Override
@@ -1851,9 +1880,10 @@ public class LeanbackKeyboardContainer {
 
         @Override
         public void onResults(Bundle bundle) {
-            List<String> results = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+            List<String> results = bundle == null ? null
+                    : bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
 
-            if (results != null && mVoiceListener != null) {
+            if (results != null && !results.isEmpty() && mVoiceListener != null) {
                 mVoiceListener.onVoiceResult(results.get(0));
             }
 
@@ -1863,30 +1893,11 @@ public class LeanbackKeyboardContainer {
         // TODO: not fully decompiled and may contains bugs
         @Override
         public void onRmsChanged(float rmsdB) {
-            synchronized (this) {
-                mVoiceOn = true;
-
-                int speechLevel = 0;
-
-                if (rmsdB >= 0) {
-                    speechLevel = (int) (rmsdB * 10f);
-                }
-
-                mSpeechLevelSource.setSpeechLevel(speechLevel);
-
-                peakRmsLevel = Math.max(peakRmsLevel, rmsdB);
-                rmsCounter++;
-
-                if (rmsCounter <= 100) {
-                    return;
-                }
-
-                if (peakRmsLevel < 0) {
-                    return;
-                }
-
-                mVoiceButtonView.showNotListening();
-            }
+            // RecognitionListener's RMS scale varies by device. Keep it
+            // within the meter's 0..100 contract so one unusual reading
+            // cannot throw out of the callback and stop voice input.
+            int speechLevel = (int) Math.min(100f, Math.max(0f, rmsdB) * 10f);
+            mSpeechLevelSource.setSpeechLevel(speechLevel);
         }
     }
 }

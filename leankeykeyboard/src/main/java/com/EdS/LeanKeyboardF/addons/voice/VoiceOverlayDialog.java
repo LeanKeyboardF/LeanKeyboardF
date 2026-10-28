@@ -60,7 +60,7 @@ class VoiceOverlayDialog implements VoiceDialog, VoiceSpeechRecognizer.ResultsLi
 
     @Override
     public void onResults(String[] strings) {
-        if (strings.length > 0) {
+        if (strings != null && strings.length > 0 && strings[0] != null) {
             mCallback.openSearchPage(strings[0]);
         }
     }
