@@ -4,7 +4,13 @@
      FileProvider below back the in-app "check for update" download+install
      flow in UpdateChecker; playstore never gets either, since Play-
      distributed apps must not self-update from outside Play. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="MissingLeanbackLauncher">
+
+    <!-- This flavor overlay intentionally adds only update support. The
+         LEANBACK_LAUNCHER activity is declared in src/main/AndroidManifest.xml;
+         suppress the detector's per-file false positive for this overlay. -->
 
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 

@@ -58,6 +58,17 @@ jobs:
           --build-cache
           -Pandroid.suppressUnsupportedCompileSdk=35
 
+      # Keep the complete report available even when lint fails. The console
+      # summary only shows the first error, which is not enough to fix a batch.
+      - name: Upload Android Lint report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: LeanKeyboardF-lint-${{ github.run_number }}-${{ github.sha }}
+          path: leankeykeyboard/build/**/lint-results-originEnDebug.*
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Upload test APK
         uses: actions/upload-artifact@v7
         with:
