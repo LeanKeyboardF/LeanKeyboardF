@@ -64,15 +64,6 @@ jobs:
       - name: Build (${{ github.event.inputs.version }})
         run: ./build.sh "${{ github.event.inputs.version }}" "${{ github.event.inputs.flavors }}"
 
-      - name: Upload APKs / AAB
-        uses: actions/upload-artifact@v7
-        with:
-          name: LeanKeyboardF-v${{ github.event.inputs.version }}
-          path: |
-            releases/${{ github.event.inputs.version }}/*.apk
-            releases/${{ github.event.inputs.version }}/*.aab
-          if-no-files-found: error
-
       # Persists a newly-generated keystore (first run) and the
       # auto-incremented versionCode (every run) back into the repo.
       - name: Commit keystore / versionCode changes
@@ -86,3 +77,30 @@ jobs:
             git commit -m "chore: update release keystore/versionCode [skip ci]"
             git push
           fi
+
+      # Release assets do NOT count against the Actions artifact storage quota,
+      # so the APKs/AAB are published to a GitHub Release (draft: review it,
+      # then press "Publish release").
+      - name: Publish GitHub Release (draft)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: LeanKeyboardF v${{ github.event.inputs.version }}
+          draft: true
+          fail_on_unmatched_files: true
+          files: |
+            releases/${{ github.event.inputs.version }}/*.apk
+            releases/${{ github.event.inputs.version }}/*.aab
+
+      # Optional copy as a workflow artifact. A full quota must not fail the
+      # run, so errors are ignored; kept for 1 day only to save space.
+      - name: Upload APKs / AAB (artifact)
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: LeanKeyboardF-v${{ github.event.inputs.version }}
+          path: |
+            releases/${{ github.event.inputs.version }}/*.apk
+            releases/${{ github.event.inputs.version }}/*.aab
+          retention-days: 1
+          if-no-files-found: error

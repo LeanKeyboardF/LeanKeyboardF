@@ -87,6 +87,9 @@ public class LeanbackKeyboardContainer {
     private View[] mClipboardButtons = new View[5];
     // Only present in the floating layouts (null otherwise).
     private View mMoveButton;
+    // Vertical center (screen coordinates) of the keyboard row the user is moving along. Remembered so that
+    // going through the Enter button / clipboard column and wrapping around returns to the SAME row.
+    private int mRowAnchorY = Integer.MIN_VALUE;
     private boolean mShowingClipboardBuffer = false;
     private final float mAlphaIn;
     private final float mAlphaOut;
@@ -566,6 +569,14 @@ public class LeanbackKeyboardContainer {
             }
 
             setSelectorToFocus(focus.rect, overestimateWidth, overestimateHeight, animate);
+            // Keys always define the current row. A clipboard button defines it only when it is entered from
+            // somewhere other than the keyboard / Enter button (i.e. when moving up/down inside the column).
+            if (focus.type == KeyFocus.TYPE_MAIN
+                    || (focus.type == KeyFocus.TYPE_CLIPBOARD
+                    && mCurrKeyInfo.type != KeyFocus.TYPE_MAIN
+                    && mCurrKeyInfo.type != KeyFocus.TYPE_ACTION)) {
+                mRowAnchorY = focus.rect.centerY();
+            }
             mCurrKeyInfo.set(focus);
         }
     }
@@ -829,13 +840,10 @@ public class LeanbackKeyboardContainer {
         if (oldFocus.equals(newFocus) || LeanbackUtils.isSubmitButton(newFocus)) {
             if (LeanKeyPreferences.instance(mContext).isCyclicNavigationEnabled()) {
                 if (dir == DIRECTION_RIGHT || dir == DIRECTION_LEFT) {
-                    Rect actionRect = new Rect();
-                    offsetRect(actionRect, mActionButtonView);
-                    // Compare centers (the Enter button is taller than a key, so comparing top edges is skewed)
-                    // and scale the tolerance with the key height instead of a fixed 20px.
-                    boolean onSameRow = Math.abs(oldFocus.rect.centerY() - actionRect.centerY()) < oldFocus.rect.height() / 2;
-
-                    if (onSameRow && !LeanbackUtils.isSubmitButton(oldFocus)) {
+                    // The ring is: keys -> clipboard buttons -> Enter -> keys. Moving right already walks it in
+                    // that order from every row, so moving left past the first key must enter it from the other
+                    // end (Enter) from every row too, not only from the row the Enter button happens to be in.
+                    if (dir == DIRECTION_LEFT && oldFocus.type == KeyFocus.TYPE_MAIN) {
                         // move focus to submit button
                         offsetRect(mRect, mActionButtonView);
                         configureFocus(newFocus, mRect, 0, KeyFocus.TYPE_ACTION);
@@ -843,10 +851,14 @@ public class LeanbackKeyboardContainer {
                         offsetRect(mRect, mMainKeyboardView);
                         // x is relative to the keyboard view: 0 - leftmost key (wrapping right), width - rightmost key (wrapping left)
                         float x = dir == DIRECTION_RIGHT ? 0 : mRect.width();
-                        // Use the vertical CENTER of the old key. Its top edge lies exactly on the row boundary and
-                        // getNearestIndex() also subtracts the view's top padding, so with the top edge the wrap
-                        // landed one row higher (and drifted up one more row on every wrap when the key was held).
-                        float y = oldFocus.rect.centerY() - mRect.top;
+                        // Row to return to: the one the user was moving along (not the Enter button's own row).
+                        // Use its vertical CENTER: the top edge lies exactly on the row boundary and
+                        // getNearestIndex() also subtracts the view's top padding, so the top edge landed one row higher.
+                        int refY = oldFocus.rect.centerY();
+                        if (oldFocus.type == KeyFocus.TYPE_ACTION && mRowAnchorY != Integer.MIN_VALUE) {
+                            refY = mRowAnchorY;
+                        }
+                        float y = refY - mRect.top;
                         int keyIdx = mMainKeyboardView.getNearestIndex(x, y);
                         Key key = mMainKeyboardView.getKey(keyIdx);
                         configureFocus(newFocus, mRect, keyIdx, key, 0);
@@ -888,6 +900,13 @@ public class LeanbackKeyboardContainer {
     }
 
     public boolean getNextFocusInDirection(int direction, KeyFocus startFocus, KeyFocus nextFocus) {
+        // Several branches below (Enter button right/down, last clipboard button down, ...) don't write
+        // nextFocus at all. Without this the caller applied whatever stale focus was left in it, so focus
+        // jumped to a previously visited key and the cyclic wrap check (old == new) never fired.
+        if (nextFocus != startFocus) {
+            nextFocus.set(startFocus);
+        }
+
         switch (startFocus.type) {
             case KeyFocus.TYPE_MAIN:
                 Key key = getKey(startFocus.type, startFocus.index);
@@ -928,7 +947,9 @@ public class LeanbackKeyboardContainer {
             case KeyFocus.TYPE_ACTION:
                 offsetRect(mRect, mClipboardContainer);
                 if ((direction & DIRECTION_LEFT) != 0) {
-                    return getBestFocus((float) mRect.centerX(), (float) startFocus.rect.centerY(), nextFocus);
+                    // Land on the clipboard button of the row we came from, not of the Enter button's own row
+                    float rowY = mRowAnchorY != Integer.MIN_VALUE ? (float) mRowAnchorY : (float) startFocus.rect.centerY();
+                    return getBestFocus((float) mRect.centerX(), rowY, nextFocus);
                 }
 
                 if ((direction & DIRECTION_UP) != 0) {
@@ -1066,6 +1087,7 @@ public class LeanbackKeyboardContainer {
     }
 
     public void onInitInputView() {
+        mRowAnchorY = Integer.MIN_VALUE;
         resetFocusCursor();
         mSelector.setVisibility(View.VISIBLE);
     }
