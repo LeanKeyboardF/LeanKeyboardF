@@ -27,6 +27,7 @@
 
 package com.EdS.LeanKeyboardF.utils;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
@@ -46,7 +47,6 @@ import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.util.TypedValue;
 import androidx.annotation.NonNull;
-import androidx.annotation.StyleableRes;
 
 /**
  * A Drawable object that draws text.
@@ -87,11 +87,9 @@ public class TextDrawable extends Drawable {
     private final Drawable mDrawable;
 
     /* Attribute lists to pull default values from the current theme */
-    @StyleableRes
     private static final int[] themeAttributes = {
             android.R.attr.textAppearance
     };
-    @StyleableRes
     private static final int[] appearanceAttributes = {
             android.R.attr.textSize,
             android.R.attr.typeface,
@@ -103,7 +101,20 @@ public class TextDrawable extends Drawable {
     public TextDrawable(Context context) {
         this(context, null);
     }
-    
+
+    // These arrays intentionally contain android.R.attr IDs. Lint treats the
+    // platform obtainStyledAttributes signature as accepting only R.styleable
+    // values, so keep the false positive scoped to the framework calls.
+    @SuppressLint("ResourceType")
+    private static TypedArray obtainThemeTextAttributes(Context context) {
+        return context.getTheme().obtainStyledAttributes(themeAttributes);
+    }
+
+    @SuppressLint("ResourceType")
+    private static TypedArray obtainTextAppearanceAttributes(Context context, int appearanceId) {
+        return context.obtainStyledAttributes(appearanceId, appearanceAttributes);
+    }
+
     public TextDrawable(Context context, Drawable drawable) {
         super();
         mDrawable = drawable;
@@ -126,13 +137,13 @@ public class TextDrawable extends Drawable {
         int typefaceIndex = -1;
 
         //Set default parameters from the current theme
-        TypedArray a = context.getTheme().obtainStyledAttributes(themeAttributes);
+        TypedArray a = obtainThemeTextAttributes(context);
         int appearanceId = a.getResourceId(0, -1);
         a.recycle();
 
         TypedArray ap = null;
         if (appearanceId != -1) {
-            ap = context.obtainStyledAttributes(appearanceId, appearanceAttributes);
+            ap = obtainTextAppearanceAttributes(context, appearanceId);
         }
         if (ap != null) {
             for (int i=0; i < ap.getIndexCount(); i++) {

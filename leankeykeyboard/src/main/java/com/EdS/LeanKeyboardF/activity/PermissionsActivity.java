@@ -6,7 +6,6 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.FragmentActivity;
 import com.EdS.LeanKeyboardF.helpers.PermissionHelpers;
 import com.EdS.LeanKeyboardF.receiver.RestartServiceReceiver;
-import com.EdS.LeanKeyboardF.utils.LeanKeyPreferences;
 
 public class PermissionsActivity extends FragmentActivity {
     @Override
@@ -22,6 +21,7 @@ public class PermissionsActivity extends FragmentActivity {
 
         // restart kbd service
         Intent intent = new Intent(this, RestartServiceReceiver.class);
+        intent.setAction(RestartServiceReceiver.ACTION_RESTART_SERVICE);
         sendBroadcast(intent);
     }
 
@@ -29,18 +29,20 @@ public class PermissionsActivity extends FragmentActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
+        if (requestCode == PermissionHelpers.REQUEST_MIC
+                && !PermissionHelpers.hasMicPermissions(this)) {
+            // Do not immediately show the same system prompt again after a
+            // denial. The user can retry by invoking voice input again.
+            finish();
+            return;
+        }
+
         checkPermissions();
     }
 
     private void checkPermissions() {
         if (!PermissionHelpers.hasMicPermissions(this)) {
             PermissionHelpers.verifyMicPermissions(this);
-        } else if (!PermissionHelpers.isStorageRequirementMet(this)) {
-            // Mark it as asked BEFORE requesting: the result callback calls
-            // checkPermissions() again, and on versions that auto-deny the
-            // request it used to loop here forever.
-            LeanKeyPreferences.instance(this).setStoragePermissionAsked(true);
-            PermissionHelpers.verifyStoragePermissions(this);
         } else {
             finish();
         }

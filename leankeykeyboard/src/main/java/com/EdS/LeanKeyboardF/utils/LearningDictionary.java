@@ -2,6 +2,7 @@ package com.EdS.LeanKeyboardF.utils;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -43,8 +44,8 @@ public class LearningDictionary {
     private static final int MAX_WORD_LENGTH = 40;
 
     private static LearningDictionary sInstance;
-    private final Context mContext;
     private final SharedPreferences mPrefs;
+    private final SharedPreferences mSettingsPrefs;
 
     public static synchronized LearningDictionary instance(Context context) {
         if (sInstance == null) {
@@ -54,8 +55,9 @@ public class LearningDictionary {
     }
 
     private LearningDictionary(Context context) {
-        mContext = context;
-        mPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Context appContext = context.getApplicationContext();
+        mPrefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        mSettingsPrefs = PreferenceManager.getDefaultSharedPreferences(appContext);
     }
 
     // List.sort() and Comparator.comparingInt() only exist from Android 7
@@ -64,7 +66,7 @@ public class LearningDictionary {
     // "Legacy Android mode" on, sort with Collections.sort() instead. With
     // it off, this is the same code as before.
     private void sortByValue(List<Map.Entry<String, Integer>> entries, boolean descending) {
-        if (LegacyCompat.isEnabled(mContext)) {
+        if (mSettingsPrefs.getBoolean(LeanKeyPreferences.LEGACY_ANDROID_COMPAT_ENABLED, false)) {
             LegacyCompat.sortEntriesByValue(entries, descending);
         } else if (descending) {
             entries.sort((a, b) -> b.getValue() - a.getValue());

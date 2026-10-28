@@ -606,10 +606,7 @@ public class LeanbackKeyboardContainer {
      * @param context context
      */
     private void startRecognition(Context context) {
-        // Same rule as PermissionsActivity (incl. "MANAGE_EXTERNAL_STORAGE
-        // does not work on Android 14"): storage never blocks voice input.
-        if (PermissionHelpers.isStorageRequirementMet(context) &&
-            PermissionHelpers.hasMicPermissions(context)) {
+        if (PermissionHelpers.hasMicPermissions(context)) {
             if (SpeechRecognizer.isRecognitionAvailable(context)) {
                 mRecognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
                 mRecognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);

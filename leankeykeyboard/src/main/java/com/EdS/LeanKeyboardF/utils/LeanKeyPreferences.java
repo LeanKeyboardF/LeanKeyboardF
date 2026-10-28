@@ -33,8 +33,7 @@ public final class LeanKeyPreferences {
     private static final String CLIPBOARD_HISTORY = "clipboardHistory";
     private static final String DEBUG_LOGGING_ENABLED = "debugLoggingEnabled";
     private static final String UNSTABLE_UPDATES_ENABLED = "unstableUpdatesEnabled";
-    private static final String LEGACY_ANDROID_COMPAT_ENABLED = "legacyAndroidCompatEnabled";
-    private static final String STORAGE_PERMISSION_ASKED = "storagePermissionAsked";
+    static final String LEGACY_ANDROID_COMPAT_ENABLED = "legacyAndroidCompatEnabled";
     private static LeanKeyPreferences sInstance;
     private final Context mContext;
     private SharedPreferences mPrefs;
@@ -175,18 +174,6 @@ public final class LeanKeyPreferences {
 
     public void setUnstableUpdatesEnabled(boolean enabled) {
         mPrefs.edit().putBoolean(UNSTABLE_UPDATES_ENABLED, enabled).apply();
-    }
-
-    // Set once the storage permission prompt has been shown. Newer Android
-    // versions never grant the legacy storage permissions (the request
-    // comes back denied without any dialog), so "granted" alone can never
-    // end the permission flow there - see PermissionHelpers.
-    public boolean wasStoragePermissionAsked() {
-        return mPrefs.getBoolean(STORAGE_PERMISSION_ASKED, false);
-    }
-
-    public void setStoragePermissionAsked(boolean asked) {
-        mPrefs.edit().putBoolean(STORAGE_PERMISSION_ASKED, asked).apply();
     }
 
     // Off by default: Settings -> Interface -> "Hide Activate Keyboard".

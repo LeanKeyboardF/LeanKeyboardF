@@ -21,6 +21,7 @@ public class KbSettingsActivity extends FragmentActivity {
 
         // restart kbd service
         Intent intent = new Intent(this, RestartServiceReceiver.class);
+        intent.setAction(RestartServiceReceiver.ACTION_RESTART_SERVICE);
         sendBroadcast(intent);
     }
 }

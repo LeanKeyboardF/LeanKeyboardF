@@ -11,6 +11,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ViewConfiguration;
 import android.view.animation.AccelerateInterpolator;
+import java.lang.ref.WeakReference;
 
 public class TouchNavSpaceTracker {
     private static final boolean DEBUG = false;
@@ -85,18 +86,7 @@ public class TouchNavSpaceTracker {
         mFlickMaxSquared = mFlickMaxDistance * mFlickMaxDistance;
         mFlickMaxDuration = DEFAULT_MAX_FLICK_DURATION_MS;
         mLPFEnabled = false;
-        mHandler = new Handler() {
-            public void handleMessage(Message msg) {
-                switch (msg.what) {
-                    case 0:
-                        if (TouchNavSpaceTracker.this.mKeyEventListener != null) {
-                            TouchNavSpaceTracker.this.mKeyEventListener.onKeyLongPress(msg.arg1, (KeyEvent) msg.obj);
-                            return;
-                        }
-                    default:
-                }
-            }
-        };
+        mHandler = new LongClickHandler(this);
         mKeyEventListener = keyListener;
         mPixelListener = pixelSpaceListener;
         mTouchParams = new SparseArray<>(1);
@@ -105,6 +95,27 @@ public class TouchNavSpaceTracker {
         mPixelWidth = 0.0F;
         mPixelHeight = 0.0F;
         mPixelsPerMm = 0.0F;
+    }
+
+    private static final class LongClickHandler extends Handler {
+        private final WeakReference<TouchNavSpaceTracker> mTrackerRef;
+
+        LongClickHandler(TouchNavSpaceTracker tracker) {
+            mTrackerRef = new WeakReference<>(tracker);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            TouchNavSpaceTracker tracker = mTrackerRef.get();
+            if (tracker == null || msg.what != MSG_LONG_CLICK) {
+                return;
+            }
+
+            KeyEventListener listener = tracker.mKeyEventListener;
+            if (listener != null) {
+                listener.onKeyLongPress(msg.arg1, (KeyEvent) msg.obj);
+            }
+        }
     }
 
     private float calculateSensitivity(MotionEvent var1, MotionEvent var2) {

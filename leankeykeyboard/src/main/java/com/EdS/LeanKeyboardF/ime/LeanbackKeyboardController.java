@@ -199,12 +199,6 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
         mContainer.setTouchState(LeanbackKeyboardContainer.TOUCH_STATE_CLICK);
     }
 
-    private void fakeClickUp() {
-        LeanbackKeyboardContainer container = mContainer;
-        commitKey(container.getCurrFocus());
-        container.setTouchState(0);
-    }
-
     private void fakeKeyCode(final int keyCode) {
         mContainer.getCurrFocus().code = keyCode;
         handleCommitKeyboardKey(keyCode, null);
@@ -650,10 +644,12 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
             view.setClickable(true);
             view.setOnTouchListener(this);
             view.setOnHoverListener(this);
+            view.setOnClickListener(v -> commitKey(mContainer.getCurrFocus()));
             Button button = mContainer.getGoButton();
             button.setOnTouchListener(this);
             button.setOnHoverListener(this);
             button.setTag(TAG_GO);
+            button.setOnClickListener(v -> fakeKeyIndex(0, KeyFocus.TYPE_ACTION));
 
             // The 5 clipboard action buttons (Clear/Select All/Copy/Cut/Paste)
             // are plain clickable ImageButtons: a direct tap is consumed by
@@ -992,8 +988,12 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
                 beginLongClickCountdown();
                 break;
             case MotionEvent.ACTION_UP:
+                if (mHandler != null) {
+                    mHandler.removeCallbacks(this);
+                }
+
                 if (isEnterKey) {
-                    fakeKeyIndex(0, KeyFocus.TYPE_ACTION);
+                    view.performClick();
                     break;
                 }
 
@@ -1001,10 +1001,11 @@ public class LeanbackKeyboardController implements LeanbackKeyboardContainer.Voi
                     mClickConsumed = true;
                     if (isDoubleClick()) {
                         mContainer.onKeyLongPress();
+                        fakeLongClickUp();
                         break;
                     }
 
-                    fakeClickUp();
+                    view.performClick();
                 }
 
                 fakeLongClickUp();

@@ -3,6 +3,13 @@
           xmlns:tools="http://schemas.android.com/tools"
           package="com.EdS.LeanKeyboardF">
 
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <!-- Use older sdk -->
     <uses-sdk tools:overrideLibrary="
             android.support.v17.leanback,
@@ -26,9 +33,7 @@
          releases API) - see UpdateChecker. Harmless to declare in the
          playstore flavor too since that flavor never calls it. -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Google Play Store fix -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <application
         android:banner="@mipmap/ic_banner_main"
@@ -108,13 +113,16 @@
         <receiver
             android:name="com.EdS.LeanKeyboardF.receiver.RestartServiceReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_ADDED"/>
                 <action android:name="android.intent.action.PACKAGE_REMOVED"/>
                 <action android:name="android.intent.action.PACKAGE_REPLACED"/>
 
                 <data android:scheme="package"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.EdS.LeanKeyboardF.action.RESTART_SERVICE" />
             </intent-filter>
         </receiver>
 

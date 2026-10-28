@@ -47,11 +47,17 @@ public class DialogTitle extends AppCompatTextView {
                             R.styleable.TextAppearance,
                             android.R.attr.textAppearanceMedium,
                             android.R.style.TextAppearance_Medium);
-                    final int textSize = a.getDimensionPixelSize(
+                    final int textSize;
+                    final int textColor;
+                    try {
+                        textSize = a.getDimensionPixelSize(
                                 R.styleable.TextAppearance_textSize,
-                            (int) (20 * getResources().getDisplayMetrics().density));
-                    final int textColor = a.getColor(
-                            R.styleable.TextAppearance_textColor, 0xffffffff);
+                                (int) (20 * getResources().getDisplayMetrics().density));
+                        textColor = a.getColor(
+                                R.styleable.TextAppearance_textColor, 0xffffffff);
+                    } finally {
+                        a.recycle();
+                    }
                     // textSize is already expressed in pixels
                     setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
                     setTextColor(textColor);
